@@ -1,9 +1,9 @@
 # You need to supply your own resources
 resources/
 
-# And editor-helpers
-world/editor-helpers/
-world_clean/editor-helpers/
+# And editor_helpers
+world/editor_helpers/
+world_clean/editor_helpers/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

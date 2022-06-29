@@ -1,3 +1,10 @@
+# You need to supply your own resources
+resources/
+
+# And editor-helpers
+world/editor-helpers/
+world_clean/editor-helpers/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

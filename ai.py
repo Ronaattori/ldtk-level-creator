@@ -1,8 +1,5 @@
+from math import ceil
 import random
-from re import A
-from tabnanny import check
-from tempfile import tempdir
-from tokenize import Name
 from typing import Iterable
 from level import Level
 from world import World
@@ -23,16 +20,26 @@ target = Level(world, ROOT / "0002-Target.ldtkl")
 
 
 class Tilechecker:
-    def __init__(self, target, template):
+    def __init__(self, target, template, check_directions=False):
         self.target = target
         self.template = template
+        self.check_directions = check_directions
         self.allowed = self._build_rules()
 
     def _build_rules(self):
         self.all_tiles = set()
         wid, hei = self.div_16(self.template.size)
         arr = np.zeros((hei, wid), int)
-        allowed = {0: {}}
+        allowed = {}
+        # TODO: Instead of having a numpy array of tile ids, create a dict of possible tile combinations
+        # for location in arr:
+        #   for layer in self.template.layers()
+        #       if "gridTiles" in layer:
+        #           for tile in layer["gridTiles"]
+        #               if location == tile["px"]
+        #                   arr[location].append(layer["t"])
+        # Then create the same kind of ruleset but dict keys are now "element ids"
+        #
         # Create a np array of the tiles in the template
         for layer in self.template.layers.values():
             if "gridTiles" in layer:
@@ -41,9 +48,13 @@ class Tilechecker:
                     if arr[y][x] == 0:
                         arr[y][x] = t = tile["t"]
                         if t not in allowed:
-                            allowed[t] = {}
-                            self.all_tiles.add(t)
+                            # Build a different type of ruleset if checking is allowed
+                            if self.check_directions:
+                                allowed[t] = {}
+                            else:
+                                allowed[t] = set()
 
+                            self.all_tiles.add(t)
         # Go through each tile and append all surrounding tiles to a dict
         for i, t in enumerate(np.nditer(arr)):
             t = int(t)
@@ -115,9 +126,15 @@ class Tilechecker:
         for coord in self.coords_around(level, coords):
             dr = self.get_direction(coord, coords)
             y, x = coord
-            if dr not in self.allowed[arr[y][x]]:
-                continue
-            allowed = set.intersection(allowed, self.allowed[arr[y][x]][dr])
+            if arr[y][x]:
+                # If direction isnt known, nothing can go to that side of the tile
+                if dr in self.allowed[arr[y][x]]:
+                    allow = self.allowed[arr[y][x]][dr]
+                else:
+                    allow = set()
+            else:
+                allow = self.all_tiles
+            allowed = set.intersection(allowed, allow)
         return allowed
 
 
@@ -125,9 +142,8 @@ wid, hei = size = [x // 16 for x in target.size]
 
 tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
 
-checker = Tilechecker(target, level3)
+checker = Tilechecker(target, level3, check_directions=True)
 arr = np.zeros((size[1], size[0]), int)
-
 
 # Set known tiles into the array
 for tile in target.layers["Ground"]["gridTiles"]:
@@ -139,17 +155,20 @@ while 0 in arr:
     poss = []
     for coords in list(zip(*np.nonzero(arr == 0))):
         # coords = (y, x)
-        y, x = coords
         allowed = checker.check_allowed(target, arr, coords)
-        if not allowed:
-            break
         poss.append((coords, allowed))
+        # Not having allowed is only an issue with small tilesets
+        # if not allowed:
+        #     break
 
     # Calculate whats the least amount of options any level has and remove all tiles that have more than it
-    if not allowed:
-        break
     min_opt = min([len(x[1]) for x in poss])
+    min_opt = max(1, min_opt)  # Ignore tiles with 0 options
     poss = [x for x in poss if len(x[1]) == min_opt]
+
+    # Were out of options
+    if not poss:
+        break
 
     selected = random.choice(poss)
     y, x = selected[0]

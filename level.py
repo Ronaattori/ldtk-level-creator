@@ -38,8 +38,8 @@ class Level:
 
     # Take in a single int tile texture pointer and return the coordinate version of it
     def tToSrc(self, value):
-        x = value % 8 * 16
-        y = value // 8 * 16
+        x = int(value % 8 * 16)
+        y = int(value // 8 * 16)
         return [x, y]
 
     # Convert coords into the single int pointer format

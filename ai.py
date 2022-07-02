@@ -27,48 +27,57 @@ class Tilechecker:
         self.allowed = self._build_rules()
 
     def _build_rules(self):
-        self.all_tiles = set()
-        wid, hei = self.div_16(self.template.size)
-        arr = np.zeros((hei, wid), int)
-        allowed = {}
-        # TODO: Instead of having a numpy array of tile ids, create a dict of possible tile combinations
-        # for location in arr:
-        #   for layer in self.template.layers()
-        #       if "gridTiles" in layer:
-        #           for tile in layer["gridTiles"]
-        #               if location == tile["px"]
-        #                   arr[location].append(layer["t"])
-        # Then create the same kind of ruleset but dict keys are now "element ids"
-        #
-        # Create a np array of the tiles in the template
-        for layer in self.template.layers.values():
-            if "gridTiles" in layer:
-                for tile in layer["gridTiles"]:
-                    x, y = self.div_16(tile["px"])
-                    if arr[y][x] == 0:
-                        arr[y][x] = t = tile["t"]
-                        if t not in allowed:
-                            # Build a different type of ruleset if checking is allowed
-                            if self.check_directions:
-                                allowed[t] = {}
-                            else:
-                                allowed[t] = set()
+        self.all_elements = set()
+        self.elements = []
+        self.valid_layers = [
+            x
+            for x in self.template.layers.values()
+            if "gridTiles" in x and x["gridTiles"]
+        ]
 
-                            self.all_tiles.add(t)
+        wid, hei = self.div_16(self.template.size)
+        depth = len(self.valid_layers)
+        arr = np.zeros((depth, hei, wid), int)
+        flat_arr = np.zeros((hei, wid), int)
+
+        # Map all known tiles into a numpy array
+        for d, layer in enumerate(self.valid_layers):
+            for tile in layer["gridTiles"]:
+                x, y = self.div_16(tile["px"])
+                arr[d][y][x] = tile["t"]
+
+        # Create a list of elements and map them to the array
+        for x in range(wid):
+            for y in range(hei):
+                element = []
+                for d in range(depth):
+                    element.append(arr[d][y][x])
+                element = tuple(element)
+
+                if element not in self.elements:
+                    self.elements.append(element)
+                    self.all_elements.add(element)
+
+                flat_arr[y][x] = self.elements.index(element)
+
         # Go through each tile and append all surrounding tiles to a dict
-        for i, t in enumerate(np.nditer(arr)):
-            t = int(t)
-            wid = self.template.size[0]
-            coords = [i // self.div_16(wid), i % self.div_16(wid)]
+        allowed = {}
+        for i, element in enumerate(np.nditer(flat_arr)):
+            elem = int(element)
+            wid = self.div_16(self.template.size[0])
+            coords = [i // wid, i % wid]
             for coord in self.coords_around(self.template, coords):
                 y, x = coord
                 dr = self.get_direction(coords, coord)
-                # if dr not in allowed[0]:
-                #     allowed[0][dr] = set()
-                if dr not in allowed[t]:
-                    allowed[t][dr] = set()
-                allowed[t][dr].add(arr[y][x])
-                # allowed[0][dr].add(arr[y][x])
+                if elem not in allowed:
+                    allowed[elem] = {}
+                if dr not in allowed[elem]:
+                    allowed[elem][dr] = set()
+                allowed[elem][dr].add(flat_arr[y][x])
+        # Set some more attributes
+        self.element_array = flat_arr
+        self.all_elements = {x for x in range(len(self.elements))}
+
         return allowed
 
     def div_16(self, val):
@@ -122,18 +131,19 @@ class Tilechecker:
         # Check surrounding coords for what they allow to be in the direction of the original coord
         # Then merge the lists to only include tiles that all surrounding tiles agreed on
         y, x = coords
-        allowed = self.all_tiles
+
+        allowed = self.all_elements
         for coord in self.coords_around(level, coords):
             dr = self.get_direction(coord, coords)
             y, x = coord
-            if arr[y][x]:
+            if arr[y][x] == -1:
+                allow = self.all_elements
+            else:
                 # If direction isnt known, nothing can go to that side of the tile
                 if dr in self.allowed[arr[y][x]]:
                     allow = self.allowed[arr[y][x]][dr]
                 else:
                     allow = set()
-            else:
-                allow = self.all_tiles
             allowed = set.intersection(allowed, allow)
         return allowed
 
@@ -143,17 +153,17 @@ wid, hei = size = [x // 16 for x in target.size]
 tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
 
 checker = Tilechecker(target, level3, check_directions=True)
-arr = np.zeros((size[1], size[0]), int)
+arr = np.full((size[1], size[0]), -1, int)
 
 # Set known tiles into the array
-for tile in target.layers["Ground"]["gridTiles"]:
-    x, y = tuple([a // 16 for a in tile["px"]])
-    arr[y][x] = tile["t"]
+# for tile in target.layers["Ground"]["gridTiles"]:
+#     x, y = tuple([a // 16 for a in tile["px"]])
+#     arr[y][x] = tile["t"]
 
-while 0 in arr:
-    print(f"{len(arr[arr==0])} tiles left to fill")
+while -1 in arr:
+    print(f"{len(arr[arr==-1])} tiles left to fill")
     poss = []
-    for coords in list(zip(*np.nonzero(arr == 0))):
+    for coords in list(zip(*np.nonzero(arr == -1))):
         # coords = (y, x)
         allowed = checker.check_allowed(target, arr, coords)
         poss.append((coords, allowed))
@@ -172,53 +182,27 @@ while 0 in arr:
 
     selected = random.choice(poss)
     y, x = selected[0]
-    t = random.choice(list(selected[1]))
+    element_num = random.choice(list(selected[1]))
 
-    arr[y][x] = t
+    arr[y][x] = element_num
+    element = checker.elements[element_num]
 
-    tile = copy.deepcopy(tile_template)
-    tile["px"] = [int(x) * 16, int(y) * 16]
-    tile["d"] = [int(target.coordToInt((x, y), wid))]
+    checker.valid_layers[0]
+    target.layers["Above_A"]
+    for i, layer in enumerate(checker.valid_layers):
+        # TODO: Valid layers is a copy of the layers
+        layer = target.layers[layer["__identifier"]]
+        tile = copy.deepcopy(tile_template)
+        t = element[i]
 
-    tile["src"] = target.tToSrc(t)
-    tile["t"] = int(t)
-    print(arr)
+        tile["px"] = [int(x) * 16, int(y) * 16]
+        tile["d"] = [int(target.coordToInt((x, y), wid))]
 
-    target.layers["Ground"]["gridTiles"].append(tile)
+        tile["src"] = target.tToSrc(t)
+        tile["t"] = int(t)
 
-# while 0 in arr:
-#     print(f"{len(arr[arr==0])} tiles left to fill")
-#     poss = []
-#     for y, x in list(zip(*np.nonzero(arr))):
-#         val = arr[y][x]
-#
-#         append_around(poss, arr, x, y)
-#
-#     if poss:
-#         # Calculate which options have the least allowed tiles
-#         poss_chances = [[x, allowed_tiles(arr, x[0], x[1])] for x in poss]
-#         least_options = min([len(x[1]) for x in poss_chances])
-#         poss_chances = [x for x in poss_chances if len(x[1]) == least_options]
-#
-#         # Select a random allowed tile and coordinates
-#         selected = random.choice(poss_chances)
-#         x, y = selected[0]
-#         t = random.choice(selected[1])
-#
-#         arr[y][x] = t
-#
-#         # Set location related stuff
-#         tile = copy.deepcopy(target.layers["Ground"]["gridTiles"][0])
-#         tile["px"] = [int(x) * 16, int(y) * 16]
-#         tile["d"] = [int(target.coordToInt([x, y], size[0]))]
-#         target.coordToInt([x, y], size[1])
-#
-#         # Set tile related stuff
-#         tile["src"] = target.tToSrc(t)
-#         tile["t"] = t
-#
-#         # target.layers["Ground"]["gridTiles"].append(tile)
-#
+        layer["gridTiles"].append(tile)
+
 target.layers["Ground"]["gridTiles"].sort(key=lambda x: x["d"][0])
 target.write()
 print("Wrote")

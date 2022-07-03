@@ -1,4 +1,3 @@
-from math import ceil
 import random
 from typing import Iterable
 from level import Level
@@ -6,6 +5,7 @@ from world import World
 from pathlib import Path
 import copy
 import numpy as np
+import time
 
 ROOT = Path("world/world")
 
@@ -120,7 +120,7 @@ class Tilechecker:
         around = tuple((i for i in around if i[0] < hei and i[1] < wid))
         return around
 
-    def check_allowed(self, level, arr, coords):
+    def check_allowed(self, level, arr, poss, coords):
         # Check surrounding coords for what they allow to be in the direction of the original coord
         # Then merge the lists to only include tiles that all surrounding tiles agreed on
         y, x = coords
@@ -129,14 +129,17 @@ class Tilechecker:
         for coord in self.coords_around(level, coords):
             dr = self.get_direction(coord, coords)
             y, x = coord
-            if arr[y][x] == -1:
-                allow = self.all_elements
+            allow = set()
+
+            # if arr[y][x] == -1:
+            if coord in poss:
+                for item in poss[coord]:
+                    if dr in self.allowed[item]:
+                        allow = allow | self.allowed[item][dr]
             else:
-                # If direction isnt known, nothing can go to that side of the tile
                 if dr in self.allowed[arr[y][x]]:
-                    allow = self.allowed[arr[y][x]][dr]
-                else:
-                    allow = set()
+                    allow = allow | self.allowed[arr[y][x]][dr]
+
             allowed = set.intersection(allowed, allow)
         return allowed
 
@@ -146,72 +149,103 @@ wid, hei = size = [x // 16 for x in target.size]
 tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
 
 checker = Tilechecker(target, level3, check_directions=True)
-arr = np.full((size[1], size[0]), -1, int)
+arr = np.full((hei, wid), -1, int)
 
 # TODO: Fix this part. we need to assign elements here whick might not exist in the ruleset.
-# Set known tiles into the array
+# I dont think implementing this is a good idea, since its very unstable and were creating levels from thin air anyway
+# Map all known tiles into a numpy array
+# pre_arr = np.zeros((depth, hei, wid), int)
+# depth = len(checker.valid_layers)
+# for d, layer in enumerate(target.layers):
+#     if "gridTiles" in layer and layer["gridTiles"]:
+#         for tile in layer["gridTiles"]:
+#             x, y = checker.div_16(tile["px"])
+#             pre_arr[d][y][x] = tile["t"]
 #
-# print(arr)
-# for loc, _ in enumerate(np.nditer(arr)):
-#     y, x = [loc // wid, loc % wid]
-#     element = []
-#     for layer in target.layers.values():
-#         if "gridTiles" in layer and layer["gridTiles"]:
-#             found = False
-#             for tile in layer["gridTiles"]:
-#                 t_x, t_y = checker.div_16(tile["px"])
-#                 if [x, y] == [t_x, t_y]:
-#                     element.append(tile["t"])
-#                     found = True
-#             if not found:
-#                 element.append(0)
-#     if sum(element):
-#         print(element)
-#         arr[y][x] = checker.elements.index(tuple(element))
-# arr
-# break
+# for x in range(wid):
+#     for y in range(hei):
+#         element = []
+#         for d in range(depth):
+#             element.append(pre_arr[d][y][x])
+#         element = tuple(element)
+#
+#         arr[y][x] = checker.elements.index(element)
+
+timer = time.perf_counter()
+
+poss = {}
+for coords in list(zip(*np.nonzero(arr == -1))):
+    # coords = (y, x)
+    # allowed = checker.check_allowed(target, arr, coords)
+    # poss[coords] = allowed
+    poss[coords] = checker.all_elements
+
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
-    poss = []
-    for coords in list(zip(*np.nonzero(arr == -1))):
-        # coords = (y, x)
-        allowed = checker.check_allowed(target, arr, coords)
-        poss.append((coords, allowed))
-        # Not having allowed is only an issue with small tilesets
-        # if not allowed:
-        #     break
 
     # Calculate whats the least amount of options any level has and remove all tiles that have more than it
     try:
-        min_opt = min([len(x[1]) for x in poss if x[1]])  # Ignore tiles with 0 options
+        min_opt = min(
+            [len(x) for x in poss.values() if len(x) > 0]
+        )  # Ignore tiles with 0 options
     except ValueError:
         # Were out of options
         break
-    poss = [x for x in poss if len(x[1]) == min_opt]
+    select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
-    selected = random.choice(poss)
+    selected = random.choice(list(select_poss.items()))
     y, x = selected[0]
     element_num = random.choice(list(selected[1]))
 
+    # print(y, x, element_num)
     arr[y][x] = element_num
-    element = checker.elements[element_num]
+    poss.pop(selected[0])
 
-    for i, layer in enumerate(checker.valid_layers):
-        t = element[i]
-        if t == 0:
+    # for coords in checker.coords_around(target, (y, x)):
+    #     if coords not in poss:
+    #         continue
+    #     y, x = coords
+    #     allowed = checker.check_allowed(target, arr, poss, coords)
+    #     #if not allowed:
+    #         #raise Exception(allowed)
+    #     poss[coords] = allowed
+
+    propagations = [x for x in checker.coords_around(target, (y, x))]
+    while propagations:
+        coords = propagations.pop(0)
+        if coords not in poss:
             continue
-        # TODO: Valid layers is a copy of the layers
-        layer = target.layers[layer["__identifier"]]
-        tile = copy.deepcopy(tile_template)
+        y, x = coords
+        allowed = checker.check_allowed(target, arr, poss, coords)
+        if poss[coords] == allowed:
+            continue
+        poss[coords] = allowed
+        propagations.extend([x for x in checker.coords_around(target, coords)])
 
-        tile["px"] = [int(x) * 16, int(y) * 16]
-        tile["d"] = [int(target.coordToInt((x, y), wid))]
+for y in range(arr.shape[0]):
+    for x in range(arr.shape[1]):
+        element_num = arr[y][x]
+        if element_num == -1:
+            continue
 
-        tile["src"] = target.tToSrc(t)
-        tile["t"] = int(t)
+        element = checker.elements[element_num]
+        for i, layer in enumerate(checker.valid_layers):
+            t = element[i]
+            if t == 0:
+                continue
+            # TODO: Valid layers is a copy of the layers
+            layer = target.layers[layer["__identifier"]]
+            tile = copy.deepcopy(tile_template)
 
-        layer["gridTiles"].append(tile)
+            tile["px"] = [int(x) * 16, int(y) * 16]
+            tile["d"] = [int(target.coordToInt((x, y), wid))]
+
+            tile["src"] = target.tToSrc(t)
+            tile["t"] = int(t)
+
+            layer["gridTiles"].append(tile)
 
 target.layers["Ground"]["gridTiles"].sort(key=lambda x: x["d"][0])
+print("Running time:", (time.perf_counter() - timer) // 1000, "s")
 target.write()
 print("Wrote")

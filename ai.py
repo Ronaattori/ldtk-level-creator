@@ -38,7 +38,7 @@ class Tilechecker:
         wid, hei = self.div_16(self.template.size)
         depth = len(self.valid_layers)
         arr = np.zeros((depth, hei, wid), int)
-        flat_arr = np.zeros((hei, wid), int)
+        flat_arr = np.empty((hei, wid), int)
 
         # Map all known tiles into a numpy array
         for d, layer in enumerate(self.valid_layers):
@@ -74,6 +74,7 @@ class Tilechecker:
                 if dr not in allowed[elem]:
                     allowed[elem][dr] = set()
                 allowed[elem][dr].add(flat_arr[y][x])
+
         # Set some more attributes
         self.element_array = flat_arr
         self.all_elements = {x for x in range(len(self.elements))}
@@ -105,14 +106,6 @@ class Tilechecker:
         if diff[1] == -1:
             return "East"
         return False
-
-    def t_to_coord(self, t):
-        d = {13: [0, 0], 39: [16, 0], 14: [32, 0]}
-        return d[t]
-
-    def t_to_name(self, t):
-        d = {13: "Grass", 39: "Flower", 14: "Bush"}
-        return d[t]
 
     def coords_around(self, level, coords):
         # Returns x+1, x-1, y+1, y-1 of given coords
@@ -155,11 +148,28 @@ tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
 checker = Tilechecker(target, level3, check_directions=True)
 arr = np.full((size[1], size[0]), -1, int)
 
+# TODO: Fix this part. we need to assign elements here whick might not exist in the ruleset.
 # Set known tiles into the array
-# for tile in target.layers["Ground"]["gridTiles"]:
-#     x, y = tuple([a // 16 for a in tile["px"]])
-#     arr[y][x] = tile["t"]
-
+#
+# print(arr)
+# for loc, _ in enumerate(np.nditer(arr)):
+#     y, x = [loc // wid, loc % wid]
+#     element = []
+#     for layer in target.layers.values():
+#         if "gridTiles" in layer and layer["gridTiles"]:
+#             found = False
+#             for tile in layer["gridTiles"]:
+#                 t_x, t_y = checker.div_16(tile["px"])
+#                 if [x, y] == [t_x, t_y]:
+#                     element.append(tile["t"])
+#                     found = True
+#             if not found:
+#                 element.append(0)
+#     if sum(element):
+#         print(element)
+#         arr[y][x] = checker.elements.index(tuple(element))
+# arr
+# break
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
     poss = []
@@ -172,13 +182,12 @@ while -1 in arr:
         #     break
 
     # Calculate whats the least amount of options any level has and remove all tiles that have more than it
-    min_opt = min([len(x[1]) for x in poss])
-    min_opt = max(1, min_opt)  # Ignore tiles with 0 options
-    poss = [x for x in poss if len(x[1]) == min_opt]
-
-    # Were out of options
-    if not poss:
+    try:
+        min_opt = min([len(x[1]) for x in poss if x[1]])  # Ignore tiles with 0 options
+    except ValueError:
+        # Were out of options
         break
+    poss = [x for x in poss if len(x[1]) == min_opt]
 
     selected = random.choice(poss)
     y, x = selected[0]
@@ -187,13 +196,13 @@ while -1 in arr:
     arr[y][x] = element_num
     element = checker.elements[element_num]
 
-    checker.valid_layers[0]
-    target.layers["Above_A"]
     for i, layer in enumerate(checker.valid_layers):
+        t = element[i]
+        if t == 0:
+            continue
         # TODO: Valid layers is a copy of the layers
         layer = target.layers[layer["__identifier"]]
         tile = copy.deepcopy(tile_template)
-        t = element[i]
 
         tile["px"] = [int(x) * 16, int(y) * 16]
         tile["d"] = [int(target.coordToInt((x, y), wid))]

@@ -38,33 +38,13 @@ class Tilechecker:
         ]
 
         wid, hei = self.div_16(self.template.size)
-        depth = len(self.valid_layers)
+        arr = np.empty((hei, wid), int)
 
-        arr = np.zeros((depth, hei, wid), int)
-        flat_arr = np.empty((hei, wid), int)
-
-        # Map all known tiles into an ndarray
-        for d, layer in enumerate(self.valid_layers):
-            for tile in layer["gridTiles"]:
-                x, y = self.div_16(tile["px"])
-                arr[d][y][x] = tile["t"]
-
-        # Create a list of elements and map them to a 2darray
-        for x in range(wid):
-            for y in range(hei):
-                element = []
-                for d in range(depth):
-                    element.append(arr[d][y][x])
-                element = tuple(element)
-
-                if element not in self.elements:
-                    self.elements.append(element)
-
-                flat_arr[y][x] = self.elements.index(element)
+        self.map_elements(self.template, arr, add_new_elements=True)
 
         # Go through each tile and append all surrounding tiles to a dict
         allowed = {}
-        for i, element in enumerate(np.nditer(flat_arr)):
+        for i, element in enumerate(np.nditer(arr)):
             elem = int(element)
             coords = [i // wid, i % wid]
             for coord in self.coords_around(self.template, coords):
@@ -74,10 +54,10 @@ class Tilechecker:
                     allowed[elem] = {}
                 if dr not in allowed[elem]:
                     allowed[elem][dr] = set()
-                allowed[elem][dr].add(flat_arr[y][x])
+                allowed[elem][dr].add(arr[y][x])
 
         # Set some more attributes
-        self.element_array = flat_arr
+        self.element_array = arr
         self.element_ids = {
             x for x in range(len(self.elements))
         }  # Used as a base of allowed element ids
@@ -150,7 +130,7 @@ class Tilechecker:
             allowed = set.intersection(allowed, allow)
         return allowed
 
-    def propagate_element(self, level, array, poss, coords):
+    def propagate_elements(self, level, array, poss, coords):
         """Process the influence of setting an element to the rest of the level.
         Add coords surrounding coordinates to a list, check their allowed tiles and update poss if needed.
         If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
@@ -170,40 +150,100 @@ class Tilechecker:
             poss[coords] = allowed
             propagations.extend([x for x in self.coords_around(level, coords)])
 
+    def map_elements(self, level, array, skip_empty=False, add_new_elements=False):
+        """Convert tiles in level to elements and map the ids to array
+        :param level                  -> Target Level object to work in
+        :param array                  -> Numpy array to map element ids into
+        :param skip_empty=False       -> Skip mapping elements of only 0s
+        :param add_new_elements=False -> Add new elements into self.elements as they are found"""
+        wid, hei = [x // 16 for x in level.size]
+        depth = len(self.valid_layers)
+        ndarray = np.zeros((depth, hei, wid), int)
+
+        # Check if tiles on layers that arent in the template
+        valid_names = [x["__identifier"] for x in self.valid_layers]
+        for layer in level.layers.values():
+            if "gridTiles" in layer and layer["gridTiles"]:
+                if layer["__identifier"] not in valid_names:
+                    raise Exception(
+                        f'Layer {layer["__identifier"]} in {level.name} contains tiles, but isnt used by the template!'
+                    )
+
+        # Map all known tiles into an ndarray
+        for d, layer in enumerate(self.valid_layers):
+            layer_name = layer["__identifier"]
+            layer = level.layers[layer_name]
+            for tile in layer["gridTiles"]:
+                x, y = self.div_16(tile["px"])
+                ndarray[d][y][x] = tile["t"]
+
+        # Create a list of elements and map them to a 2darray
+        for x in range(wid):
+            for y in range(hei):
+                element = []
+                for d in range(depth):
+                    element.append(ndarray[d][y][x])
+                element = tuple(element)
+
+                if add_new_elements:
+                    if element not in self.elements:
+                        self.elements.append(element)
+
+                if skip_empty:
+                    if sum(element) == 0:
+                        continue
+
+                if element not in self.elements:
+                    raise IndexError(
+                        f"Element {element} at coords ({y}, {x}) not found in elements!"
+                    )
+
+                array[y][x] = self.elements.index(element)
+
+
+def write_elements(level, array, tilechecker):
+    tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
+    for y in range(array.shape[0]):
+        for x in range(array.shape[1]):
+            element_id = array[y][x]
+            if element_id == -1:
+                continue
+
+            element = tilechecker.elements[element_id]
+            for i, layer in enumerate(tilechecker.valid_layers):
+                t = element[i]
+                if t == 0:
+                    continue
+                # valid_layers is the layers from the template. Write to the same layers
+                layer = level.layers[layer["__identifier"]]
+                tile = copy.deepcopy(tile_template)
+
+                tile["px"] = [int(x) * 16, int(y) * 16]
+                tile["d"] = [int(level.coordToInt((x, y), wid))]
+
+                tile["src"] = level.tToSrc(t)
+                tile["t"] = int(t)
+
+                layer["gridTiles"].append(tile)
+
 
 checker = Tilechecker(target, level3)
 
 wid, hei = size = [x // 16 for x in target.size]
 arr = np.full((hei, wid), -1, int)
 
-# TODO: Fix this part. we need to assign elements here whick might not exist in the ruleset.
-# I dont think implementing this is a good idea, since its very unstable and were creating levels from thin air anyway
-# Map all known tiles into a numpy array
-# pre_arr = np.zeros((depth, hei, wid), int)
-# depth = len(checker.valid_layers)
-# for d, layer in enumerate(target.layers):
-#     if "gridTiles" in layer and layer["gridTiles"]:
-#         for tile in layer["gridTiles"]:
-#             x, y = checker.div_16(tile["px"])
-#             pre_arr[d][y][x] = tile["t"]
-#
-# for x in range(wid):
-#     for y in range(hei):
-#         element = []
-#         for d in range(depth):
-#             element.append(pre_arr[d][y][x])
-#         element = tuple(element)
-#
-#         arr[y][x] = checker.elements.index(element)
+# Map all targets pre-set elements to the array
+checker.map_elements(target, arr, skip_empty=True)
 
 timer = time.perf_counter()
 
-poss = {}
+# Initialize poss with all coords having all options
+poss = {coords: checker.element_ids for coords in list(zip(*np.nonzero(arr == -1)))}
+
+# Update poss with information about pre-set elements
 for coords in list(zip(*np.nonzero(arr == -1))):
-    # coords = (y, x)
-    # allowed = checker.check_allowed(target, arr, coords)
-    # poss[coords] = allowed
-    poss[coords] = checker.element_ids
+    allowed = checker.check_allowed(target, arr, poss, coords)
+    poss[coords] = allowed
 
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
@@ -225,33 +265,11 @@ while -1 in arr:
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
 
-    checker.propagate_element(target, arr, poss, (y, x))
+    checker.propagate_elements(target, arr, poss, (y, x))
 
-# Go over each location and write all mapped elements into the level
-tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
-for y in range(arr.shape[0]):
-    for x in range(arr.shape[1]):
-        element_id = arr[y][x]
-        if element_id == -1:
-            continue
+# Write elements mapped into arr to the target
+write_elements(target, arr, checker)
 
-        element = checker.elements[element_id]
-        for i, layer in enumerate(checker.valid_layers):
-            t = element[i]
-            if t == 0:
-                continue
-            # TODO: Mby make sure the layers exist? Probably not needed
-            # valid_layers is the layers from the template. Write to the same layers
-            layer = target.layers[layer["__identifier"]]
-            tile = copy.deepcopy(tile_template)
-
-            tile["px"] = [int(x) * 16, int(y) * 16]
-            tile["d"] = [int(target.coordToInt((x, y), wid))]
-
-            tile["src"] = target.tToSrc(t)
-            tile["t"] = int(t)
-
-            layer["gridTiles"].append(tile)
 print("Running time:", int(time.perf_counter() - timer), "s")
 
 # Sort layer tiles by location for ease of reading

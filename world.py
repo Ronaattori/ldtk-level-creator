@@ -2,8 +2,6 @@ import json
 from pathlib import Path
 import copy
 
-ESSENTIALS_FOLDER = Path(r"C:\Pythonpaskaa\Pokemon Essentials v20")
-
 
 class World:
     """

@@ -7,7 +7,6 @@ import numpy as np
 
 LEVEL_TEMPLATE = Path("./0000-Template.ldtkl")
 ROOT = Path("world/world")
-ESSENTIALS_FOLDER = Path(r"C:\Pythonpaskaa\Pokemon Essentials v20")
 
 
 class Level:

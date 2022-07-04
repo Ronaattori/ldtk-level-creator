@@ -150,6 +150,26 @@ class Tilechecker:
             allowed = set.intersection(allowed, allow)
         return allowed
 
+    def propagate_element(self, level, array, poss, coords):
+        """Process the influence of setting an element to the rest of the level.
+        Add coords surrounding coordinates to a list, check their allowed tiles and update poss if needed.
+        If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
+        :param level  -> Level object youre working to fill
+        :param array  -> Numpy array of already set elements
+        :param poss   -> A dict of remaining coordinates' possible elements
+        :param coords -> A tuple of coords from where to start the process
+        """
+        propagations = [x for x in self.coords_around(level, coords)]
+        while propagations:
+            coords = propagations.pop(0)
+            if coords not in poss:
+                continue
+            allowed = self.check_allowed(level, array, poss, coords)
+            if poss[coords] == allowed:
+                continue
+            poss[coords] = allowed
+            propagations.extend([x for x in self.coords_around(level, coords)])
+
 
 checker = Tilechecker(target, level3)
 
@@ -205,19 +225,7 @@ while -1 in arr:
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
 
-    # Add surrounding coordinates to a list, check their allowed tiles and update poss if needed.
-    # If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
-    propagations = [x for x in checker.coords_around(target, (y, x))]
-    while propagations:
-        coords = propagations.pop(0)
-        if coords not in poss:
-            continue
-        y, x = coords
-        allowed = checker.check_allowed(target, arr, poss, coords)
-        if poss[coords] == allowed:
-            continue
-        poss[coords] = allowed
-        propagations.extend([x for x in checker.coords_around(target, coords)])
+    checker.propagate_element(target, arr, poss, (y, x))
 
 # Go over each location and write all mapped elements into the level
 tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}

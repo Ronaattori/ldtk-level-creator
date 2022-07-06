@@ -107,12 +107,10 @@ class Tilechecker:
         :param poss     -> A dict of remaining coordinates' possible elements
         :param coords   -> A tuple of coords to check surroundings from (y, x)
         :return         -> A set of allowed element ids"""
-        y, x = coords
 
         allowed = self.element_ids
         for coord in self.coords_around(level, coords):
             dr = self.get_direction(coord, coords)
-            y, x = coord
 
             allow = set()
             # If coord is not solved, check its possible element options instead
@@ -123,11 +121,36 @@ class Tilechecker:
 
             # Coord is solved, so just fetch from its allowed list
             else:
+                y, x = coord
                 if dr in self.allowed[arr[y][x]]:
-                    allow = allow | self.allowed[arr[y][x]][dr]
+                    allow = self.allowed[arr[y][x]][dr]
 
             allowed = set.intersection(allowed, allow)
         return allowed
+
+    def scan_elements(self, level, array, poss, coords):
+        """Process the influence of setting an element to the rest of the level.
+        Add coords surrounding coordinates to a list, check their allowed tiles and update poss if needed.
+        If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
+        :param level  -> Level object youre working to fill
+        :param array  -> Numpy array of already set elements
+        :param poss   -> A dict of remaining coordinates' possible elements
+        :param coords -> A tuple of coords from where to start the process
+        """
+        solving = True
+        while solving:
+            solving = False
+            propagations = []
+            for coords in list(zip(*np.nonzero(array == -1))):
+                propagations.append(coords)
+            # propagations = [x for x in self.coords_around(level, coords)]
+            while propagations:
+                coords = propagations.pop(0)
+                allowed = self.check_allowed(level, array, poss, coords)
+                if poss[coords] == allowed:
+                    continue
+                poss[coords] = allowed
+                solving = True
 
     def propagate_elements(self, level, array, poss, coords):
         """Process the influence of setting an element to the rest of the level.
@@ -221,6 +244,7 @@ def write_elements(level, array, tilechecker):
                 tile["t"] = int(t)
 
                 layer["gridTiles"].append(tile)
+    level.write()
 
 
 level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
@@ -266,7 +290,8 @@ while -1 in arr:
         break
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
-    selected = random.choice(list(select_poss.items()))
+    # select poss isnt used
+    selected = random.choice(list(poss.items()))
     element_id = random.choice(list(selected[1]))
     y, x = selected[0]
 
@@ -275,8 +300,6 @@ while -1 in arr:
 
     checker.propagate_elements(target, arr, poss, (y, x))
 
-# Write elements mapped into arr to the target
-write_elements(target, arr, checker)
 
 print("Running time:", int(time.perf_counter() - timer), "s")
 
@@ -285,5 +308,7 @@ for layer in target.layers:
     if "gridTiles" in layer and layer["gridTiles"]:
         layer["gridTiles"].sort(key=lambda x: x["d"][0])
 
-target.write()
+# Write elements mapped into arr to the target
+write_elements(target, arr, checker)
+
 print("Wrote")

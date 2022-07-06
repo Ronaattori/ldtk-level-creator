@@ -11,13 +11,6 @@ ROOT = Path("world/world")
 
 world = World("world/world.ldtk")
 
-level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
-level2 = Level(world, ROOT / "0003-Template2.ldtkl")  # 2x3 template
-level3 = Level(world, ROOT / "0000-L3_TypicalTown.ldtkl")  # The big level
-
-# The target level
-target = Level(world, ROOT / "0002-Target.ldtkl")
-
 
 class Tilechecker:
     """Object for various operations regarding elements and tile placing rules
@@ -166,15 +159,6 @@ class Tilechecker:
         depth = len(level.layers)
         ndarray = np.zeros((depth, hei, wid), int)
 
-        # # Check if tiles on layers that arent in the template
-        # valid_names = [x["__identifier"] for x in self.valid_layers]
-        # for layer in level.layers.values():
-        #     if "gridTiles" in layer and layer["gridTiles"]:
-        #         if layer["__identifier"] not in valid_names:
-        #             raise Exception(
-        #                 f'Layer {layer["__identifier"]} in {level.name} contains tiles, but isnt used by the template!'
-        #             )
-
         # Map all known tiles into an ndarray
         for d, layer in enumerate(level.layers.values()):
             for tile in layer["gridTiles"]:
@@ -211,6 +195,12 @@ def write_elements(level, array, tilechecker):
     :param array -> Numpy array that contains the mapped elements
     :param tilechecker -> Tilechecker object that contains the elements"""
     tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
+
+    # Empty all layers
+    for layer in level.layers.values():
+        layer["gridTiles"] = []
+
+    # Go over the array and write each found element to the level
     for y in range(array.shape[0]):
         for x in range(array.shape[1]):
             element_id = array[y][x]
@@ -233,23 +223,35 @@ def write_elements(level, array, tilechecker):
                 layer["gridTiles"].append(tile)
 
 
-checker = Tilechecker(target, [level3, level2])
+level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
+level2 = Level(world, ROOT / "0003-Template2.ldtkl")  # 2x3 template
+level3 = Level(world, ROOT / "0000-L3_TypicalTown.ldtkl")  # The big level
+
+roads2w = Level(world, ROOT / "0004-Roads.ldtkl")  # 2 wide roads
+roads3w = Level(world, ROOT / "0005-Roads2.ldtkl")  # 3 wide roads
+
+target = Level(world, ROOT / "0002-Target.ldtkl")
+
+checker = Tilechecker(target, [roads2w])
 
 wid, hei = size = [x // 16 for x in target.size]
+ele_arr = np.full((hei, wid), -1, int)
 arr = np.full((hei, wid), -1, int)
-
-# Map all targets pre-set elements to the array
-checker.map_elements(target, arr, skip_empty=True)
 
 timer = time.perf_counter()
 
 # Initialize poss with all coords having all options
 poss = {coords: checker.element_ids for coords in list(zip(*np.nonzero(arr == -1)))}
 
+# Map all targets pre-set elements to the array
+checker.map_elements(target, ele_arr, skip_empty=True)
+
 # Update poss with information about pre-set elements
-for coords in list(zip(*np.nonzero(arr == -1))):
-    allowed = checker.check_allowed(target, arr, poss, coords)
-    poss[coords] = allowed
+for coords in list(zip(*np.nonzero(ele_arr != -1))):
+    y, x = coords
+    arr[y][x] = ele_arr[y][x]
+    poss.pop(coords)
+    checker.propagate_elements(target, arr, poss, coords)
 
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")

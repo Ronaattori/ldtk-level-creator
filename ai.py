@@ -172,6 +172,13 @@ class Tilechecker:
             poss[coords] = allowed
             propagations.extend([x for x in self.coords_around(level, coords)])
 
+    def debug_element(self, level, arr, poss, element_id):
+        for k, v in poss.items():
+            y, x = k
+            if element_id in v:
+                arr[y][x] = element_id
+        self.write_elements(level, arr)
+
     def map_elements(self, level, array, skip_empty=False, add_new_elements=False):
         """Convert tiles in level to elements and map the ids to array
         :param level                  -> Target Level object to work in
@@ -211,40 +218,38 @@ class Tilechecker:
 
                 array[y][x] = self.elements.index(element)
 
+    def write_elements(self, level, array):
+        """Write elements mapped in array to level
+        :param level -> Target Level object to write to
+        :param array -> Numpy array that contains the mapped elements"""
+        tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
 
-def write_elements(level, array, tilechecker):
-    """Write elements mapped in array to level
-    :param level -> Target Level object to write to
-    :param array -> Numpy array that contains the mapped elements
-    :param tilechecker -> Tilechecker object that contains the elements"""
-    tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
+        # Empty all layers
+        for layer in level.layers.values():
+            layer["gridTiles"] = []
 
-    # Empty all layers
-    for layer in level.layers.values():
-        layer["gridTiles"] = []
-
-    # Go over the array and write each found element to the level
-    for y in range(array.shape[0]):
-        for x in range(array.shape[1]):
-            element_id = array[y][x]
-            if element_id == -1:
-                continue
-
-            element = tilechecker.elements[element_id]
-            for i, layer in enumerate(level.layers.values()):
-                t = element[i]
-                if t == 0:
+        # Go over the array and write each found element to the level
+        for y in range(array.shape[0]):
+            for x in range(array.shape[1]):
+                element_id = array[y][x]
+                if element_id == -1:
                     continue
-                tile = copy.deepcopy(tile_template)
 
-                tile["px"] = [int(x) * 16, int(y) * 16]
-                tile["d"] = [int(level.coordToInt((x, y), wid))]
+                element = self.elements[element_id]
+                for i, layer in enumerate(level.layers.values()):
+                    t = element[i]
+                    if t == 0:
+                        continue
+                    tile = copy.deepcopy(tile_template)
 
-                tile["src"] = level.tToSrc(t)
-                tile["t"] = int(t)
+                    tile["px"] = [int(x) * 16, int(y) * 16]
+                    tile["d"] = [int(level.coordToInt((x, y), wid))]
 
-                layer["gridTiles"].append(tile)
-    level.write()
+                    tile["src"] = level.tToSrc(t)
+                    tile["t"] = int(t)
+
+                    layer["gridTiles"].append(tile)
+        level.write()
 
 
 level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
@@ -256,7 +261,7 @@ roads3w = Level(world, ROOT / "0005-Roads2.ldtkl")  # 3 wide roads
 
 target = Level(world, ROOT / "0002-Target.ldtkl")
 
-checker = Tilechecker(target, [roads2w])
+checker = Tilechecker(target, [level2, level3])
 
 wid, hei = size = [x // 16 for x in target.size]
 ele_arr = np.full((hei, wid), -1, int)
@@ -277,6 +282,7 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     poss.pop(coords)
     checker.propagate_elements(target, arr, poss, coords)
 
+past_states = []
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
 
@@ -286,17 +292,23 @@ while -1 in arr:
             [len(x) for x in poss.values() if len(x) > 0]
         )  # Ignore tiles with 0 options
     except ValueError:
-        # Were out of options
-        break
+        # Were out of options, so rewind a bit
+        arr, poss = past_states.pop()
+        continue
+
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
-    # select poss isnt used
-    selected = random.choice(list(poss.items()))
+    selected = random.choice(list(select_poss.items()))
+    if not len(selected[1]):
+        # Were actually out of options now
+        break
+
     element_id = random.choice(list(selected[1]))
     y, x = selected[0]
 
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
+    past_states.append((copy.deepcopy(arr), copy.deepcopy(poss)))
 
     checker.propagate_elements(target, arr, poss, (y, x))
 
@@ -309,6 +321,6 @@ for layer in target.layers:
         layer["gridTiles"].sort(key=lambda x: x["d"][0])
 
 # Write elements mapped into arr to the target
-write_elements(target, arr, checker)
+checker.write_elements(target, arr)
 
 print("Wrote")

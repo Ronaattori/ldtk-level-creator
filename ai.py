@@ -203,13 +203,13 @@ class Tilechecker:
                     element.append(ndarray[d][y][x])
                 element = tuple(element)
 
-                if add_new_elements:
-                    if element not in self.elements:
-                        self.elements.append(element)
-
                 if skip_empty:
                     if sum(element) == 0:
                         continue
+
+                if add_new_elements:
+                    if element not in self.elements:
+                        self.elements.append(element)
 
                 if element not in self.elements:
                     raise IndexError(

@@ -282,7 +282,6 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     poss.pop(coords)
     checker.propagate_elements(target, arr, poss, coords)
 
-past_states = []
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
 
@@ -292,23 +291,18 @@ while -1 in arr:
             [len(x) for x in poss.values() if len(x) > 0]
         )  # Ignore tiles with 0 options
     except ValueError:
-        # Were out of options, so rewind a bit
-        arr, poss = past_states.pop()
-        continue
+        # Were out of options
+        break
 
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
     selected = random.choice(list(select_poss.items()))
-    if not len(selected[1]):
-        # Were actually out of options now
-        break
 
     element_id = random.choice(list(selected[1]))
     y, x = selected[0]
 
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
-    past_states.append((copy.deepcopy(arr), copy.deepcopy(poss)))
 
     checker.propagate_elements(target, arr, poss, (y, x))
 

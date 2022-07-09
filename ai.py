@@ -40,7 +40,8 @@ class Tilechecker:
             wid, hei = self.div_16(template.size)
             arr = np.empty((hei, wid), int)
 
-            self.map_elements(template, arr, add_new_elements=True)
+            # Skip empty to make combining templates easier
+            self.map_elements(template, arr, add_new_elements=True, skip_empty=True)
 
             # Go through each tile and append all surrounding tiles to a dict
             for i, element in enumerate(np.nditer(arr)):
@@ -252,6 +253,34 @@ class Tilechecker:
         level.write()
 
 
+def find_path(array, from_coords, to_coords):
+    # Dijkstras pathfinding algorithm
+    visited = set()
+    path = {from_coords: [from_coords]}
+    current = from_coords
+    while current:
+
+        for coord in checker.coords_around(target, current):
+            y, x = coord
+            dist = len(path[current]) + 1
+            if coord not in path or dist < len(path[coord]):
+                path[coord] = path[current] + [coord]
+
+        visited.add(current)
+        if to_coords in visited:
+            return path[to_coords]
+        next = None
+        for c, p in path.items():
+            y, x = c
+            if array[y][x] != -1:
+                continue
+            if c in visited:
+                continue
+            if next is None or len(p) < len(path[next]):
+                next = c
+        current = next
+
+
 level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
 level2 = Level(world, ROOT / "0003-Template2.ldtkl")  # 2x3 template
 level3 = Level(world, ROOT / "0000-L3_TypicalTown.ldtkl")  # The big level
@@ -261,7 +290,7 @@ roads3w = Level(world, ROOT / "0005-Roads2.ldtkl")  # 3 wide roads
 
 target = Level(world, ROOT / "0002-Target.ldtkl")
 
-checker = Tilechecker(target, [level2, level3])
+checker = Tilechecker(target, [level3, level2])
 
 wid, hei = size = [x // 16 for x in target.size]
 ele_arr = np.full((hei, wid), -1, int)
@@ -282,6 +311,8 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     poss.pop(coords)
     checker.propagate_elements(target, arr, poss, coords)
 
+print(find_path(arr, (7, 3), (2, 9)))
+past_states = []
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
 
@@ -291,8 +322,14 @@ while -1 in arr:
             [len(x) for x in poss.values() if len(x) > 0]
         )  # Ignore tiles with 0 options
     except ValueError:
-        # Were out of options
-        break
+        if not past_states:
+            # Were screwed, break out and write
+            print("Out of states and options, breaking out")
+            break
+        # Were out of options, backtrack a bit
+        arr, poss = past_states.pop()
+        print("Reverting back a state...")
+        continue
 
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
@@ -303,6 +340,10 @@ while -1 in arr:
 
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
+
+    past_states.append((copy.deepcopy(arr), copy.deepcopy(poss)))
+    if len(past_states) > 10:
+        past_states.pop(0)
 
     checker.propagate_elements(target, arr, poss, (y, x))
 

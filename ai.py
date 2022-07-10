@@ -28,7 +28,9 @@ class Tilechecker:
         eg. {0: {"North": {1, 2, 3}, "South": {5, 4, 9}}, 1: {"North": {}.....
         :return -> The ruleset"""
         # template
+        timer = time.perf_counter()
         self.elements = []
+        self.element_arrays = {}
         # self.valid_layers = [
         #     x
         #     for x in self.template.layers.values()
@@ -55,13 +57,14 @@ class Tilechecker:
                     if dr not in allowed[elem]:
                         allowed[elem][dr] = set()
                     allowed[elem][dr].add(arr[y][x])
+            self.element_arrays[template.name] = arr
 
         # Set some more attributes
-        self.element_array = arr
         self.element_ids = {
             x for x in range(len(self.elements))
         }  # Used as a base of allowed element ids
 
+        print("Building the ruleset took:", time.perf_counter() - timer)
         return allowed
 
     def div_16(self, val):
@@ -101,6 +104,38 @@ class Tilechecker:
         around = tuple((i for i in around if i[0] < hei and i[1] < wid))
         return around
 
+    def pathfinding_steps(self, level, coords):
+        y, x = coords
+        around = ((y, x + 3), (y, x - 3), (y + 3, x), (y - 3, x))
+        # Remove coordinates with negative values
+        around = tuple((i for i in around if i[0] >= 0 and i[1] >= 0))
+        # Remove coordinates that exceed boundaries
+        wid, hei = self.div_16(level.size)
+        around = tuple((i for i in around if i[0] < hei and i[1] < wid))
+        return around
+
+    def cube_around(self, level, coords):
+        """Return the coordinates around a given coordinate. Doesn't return out of bounds coordinates
+        :param level -> a tuple of coords
+        :returns     -> A tuple of surrounding coord tuples: (y+1,x), (y-1,x), (y,x+1), (y,x-1)"""
+        y, x = coords
+        around = (
+            (y, x + 1),
+            (y, x - 1),
+            (y + 1, x),
+            (y - 1, x),
+            (y - 1, x - 1),
+            (y - 1, x + 1),
+            (y + 1, x - 1),
+            (y + 1, x + 1),
+        )
+        # Remove coordinates with negative values
+        around = tuple((i for i in around if i[0] >= 0 and i[1] >= 0))
+        # Remove coordinates that exceed boundaries
+        wid, hei = self.div_16(level.size)
+        around = tuple((i for i in around if i[0] < hei and i[1] < wid))
+        return around
+
     def check_allowed(self, level, arr, poss, coords):
         """Check locations around a coordinate and return a set of element ids that are allowed in the coordinate
         :param level    -> Level object youre checking surroundings in
@@ -130,8 +165,7 @@ class Tilechecker:
         return allowed
 
     def scan_elements(self, level, array, poss, coords):
-        """Process the influence of setting an element to the rest of the level.
-        Add coords surrounding coordinates to a list, check their allowed tiles and update poss if needed.
+        """Brute force 'propagation' algorithm
         If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
         :param level  -> Level object youre working to fill
         :param array  -> Numpy array of already set elements
@@ -253,44 +287,107 @@ class Tilechecker:
         level.write()
 
 
-def find_path(array, from_coords, to_coords):
-    # Dijkstras pathfinding algorithm
-    visited = set()
-    path = {from_coords: [from_coords]}
-    current = from_coords
-    while current:
-
-        for coord in checker.coords_around(target, current):
+def fill_path(path):
+    filled_path = []
+    prev_coord = False
+    for coord in path:
+        if prev_coord:
             y, x = coord
-            dist = len(path[current]) + 1
-            if coord not in path or dist < len(path[coord]):
-                path[coord] = path[current] + [coord]
+            prev_y, prev_x = prev_coord
+            if y != prev_y:
+                if y > prev_y:
+                    for y in range(prev_y + 1, y):
+                        filled_path.append((y, x))
+                else:
+                    for y in range(prev_y - 1, y, -1):
+                        filled_path.append((y, x))
+            if x != prev_x:
+                if x > prev_x:
+                    for x in range(prev_x + 1, x):
+                        filled_path.append((y, x))
+                else:
+                    for x in range(prev_x - 1, x, -1):
+                        filled_path.append((y, x))
+        prev_coord = coord
+        filled_path.append(coord)
+    return filled_path
 
-        visited.add(current)
-        if to_coords in visited:
-            return path[to_coords]
-        next = None
-        for c, p in path.items():
-            y, x = c
-            if array[y][x] != -1:
-                continue
-            if c in visited:
-                continue
-            if next is None or len(p) < len(path[next]):
-                next = c
-        current = next
+
+def find_path(arr, from_coords, to_coords):
+    path_steps = []
+    for end_coord in to_coords:
+        visited = set()
+        path = {from_coords: [from_coords]}
+        current = from_coords
+        while current:
+            # TODO: mby move coords_around outside of the tilechecker
+            for coord in checker.pathfinding_steps(target, current):
+                y, x = coord
+                dist = len(path[current]) + 1
+                if coord not in path or dist < len(path[coord]):
+                    path[coord] = path[current] + [coord]
+
+            visited.add(current)
+            if current == end_coord:
+                from_coords = current
+                path_steps.extend(path[end_coord])
+                break
+            next = None
+            for c, p in path.items():
+                y, x = c
+                if arr[y][x] != -1:
+                    continue
+                if c in visited:
+                    continue
+                if next is None or len(p) < len(path[next]):
+                    next = c
+            if next is None:
+                return False
+            current = next
+    # Fill in the blanks caused by taking 3 steps at a time
+    final_path = fill_path(path_steps)
+    return final_path
+
+
+def create_path(arr, from_coords, to_coords):
+    timer = time.perf_counter()
+    arr = copy.deepcopy(arr)
+    open_cells = list(zip(*np.nonzero(arr == -1)))
+    random.shuffle(open_cells)
+    witness = find_path(arr, from_coords, to_coords)
+    wiggliness_reduction = 0.6  # Percentage
+    while True:
+        if not open_cells:
+            print("Creating the path  took", time.perf_counter() - timer)
+            return witness
+        c = open_cells.pop(0)
+        y, x = c
+        if c in witness:
+            if random.random() < wiggliness_reduction:
+                continue  # Reduce the wiggliness
+            arr[y][x] = 0  # find_path considers everything other than -1 as an obstacle
+            if new_path := find_path(arr, from_coords, to_coords):
+                witness = new_path
+
+
+def largen_path(level, path):
+    large_path = set()
+    for coord in path:
+        large_path = large_path | {tuple(x) for x in checker.cube_around(level, coord)}
+    # large_path == 3 wide
+    return large_path
 
 
 level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
 level2 = Level(world, ROOT / "0003-Template2.ldtkl")  # 2x3 template
 level3 = Level(world, ROOT / "0000-L3_TypicalTown.ldtkl")  # The big level
 
-roads2w = Level(world, ROOT / "0004-Roads.ldtkl")  # 2 wide roads
+roads = Level(world, ROOT / "0004-Roads.ldtkl")  # 2 wide roads
 roads3w = Level(world, ROOT / "0005-Roads2.ldtkl")  # 3 wide roads
 
 target = Level(world, ROOT / "0002-Target.ldtkl")
 
-checker = Tilechecker(target, [level3, level2])
+checker = Tilechecker(target, [level3, roads])
 
 wid, hei = size = [x // 16 for x in target.size]
 ele_arr = np.full((hei, wid), -1, int)
@@ -311,8 +408,43 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     poss.pop(coords)
     checker.propagate_elements(target, arr, poss, coords)
 
-print(find_path(arr, (7, 3), (2, 9)))
-past_states = []
+# Create the path
+# path = create_path(arr, (3, 1), [(15, 34), (15, 1)])
+path = create_path(arr, (3, 1), [(27, 55), (15, 1)])
+path = largen_path(target, path)
+
+tmp_arr = copy.deepcopy(arr)
+tmp_poss = copy.deepcopy(poss)
+for coord in list(zip(*np.nonzero(arr == -1))):
+    if coord not in path:
+        y, x = coord
+        # TODO: This is stupid
+        # Fetch top left element of the level that contians roads (usually the grass tile)
+        tmp_arr[y][x] = checker.element_arrays[roads.name][0][0]
+        tmp_poss.pop(coord)
+        checker.propagate_elements(target, tmp_arr, tmp_poss, coord)
+
+# tmp_arr is full of grass with the road carved out
+while -1 in tmp_arr:
+    if not [x for x in tmp_poss.values() if len(x) > 0]:
+        print("out of opitnos")
+        break
+    min_opt = min([len(v) for k, v in tmp_poss.items() if k in path and len(v) > 0])
+    select_poss = {k: v for k, v in tmp_poss.items() if k in path and len(v) == min_opt}
+    selected = random.choice(list(select_poss.items()))
+
+    coord = (y, x) = selected[0]
+    element_id = random.choice(list(selected[1]))
+
+    tmp_poss.pop(coord)
+    poss.pop(coord)
+
+    tmp_arr[y][x] = element_id
+    checker.scan_elements(target, tmp_arr, tmp_poss, coord)
+
+    arr[y][x] = element_id
+    checker.propagate_elements(target, arr, poss, coord)
+
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
 
@@ -322,14 +454,9 @@ while -1 in arr:
             [len(x) for x in poss.values() if len(x) > 0]
         )  # Ignore tiles with 0 options
     except ValueError:
-        if not past_states:
-            # Were screwed, break out and write
-            print("Out of states and options, breaking out")
-            break
-        # Were out of options, backtrack a bit
-        arr, poss = past_states.pop()
-        print("Reverting back a state...")
-        continue
+        # Were screwed, break out and write
+        print("Out of states and options, breaking out")
+        break
 
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
@@ -340,10 +467,6 @@ while -1 in arr:
 
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
-
-    past_states.append((copy.deepcopy(arr), copy.deepcopy(poss)))
-    if len(past_states) > 10:
-        past_states.pop(0)
 
     checker.propagate_elements(target, arr, poss, (y, x))
 

@@ -15,7 +15,7 @@ world = World("world/world.ldtk")
 class Tilechecker:
     """Object for various operations regarding elements and tile placing rules
     :param target    -> The Level object youre working to fill
-    :param templates -> A list of Level object to use as level building templates"""
+    :param templates -> A list of Level objects to use as level building templates"""
 
     def __init__(self, target, templates: list):
         self.target = target
@@ -31,35 +31,41 @@ class Tilechecker:
         timer = time.perf_counter()
         self.elements = []
         self.element_arrays = {}
-        # self.valid_layers = [
-        #     x
-        #     for x in self.template.layers.values()
-        #     if "gridTiles" in x and x["gridTiles"]
-        # ]
 
         allowed = {}
+        weights = {}
         for template in self.templates:
             wid, hei = self.div_16(template.size)
-            arr = np.empty((hei, wid), int)
+            arr = np.full((hei, wid), -1, int)
 
             # Skip empty to make combining templates easier
             self.map_elements(template, arr, add_new_elements=True, skip_empty=True)
 
             # Go through each tile and append all surrounding tiles to a dict
+            # Also take a note of how many times an element was next to another, and on what side (for weights)
             for i, element in enumerate(np.nditer(arr)):
                 elem = int(element)
                 coords = [i // wid, i % wid]
                 for coord in self.coords_around(template, coords):
                     y, x = coord
                     dr = self.get_direction(coords, coord)
-                    if elem not in allowed:
-                        allowed[elem] = {}
-                    if dr not in allowed[elem]:
-                        allowed[elem][dr] = set()
-                    allowed[elem][dr].add(arr[y][x])
+                    elem_id = arr[y][x]
+                    if elem_id != -1:
+                        if elem not in allowed:
+                            allowed[elem] = {}
+                            weights[elem] = {}
+                        if dr not in allowed[elem]:
+                            allowed[elem][dr] = set()
+                            weights[elem][dr] = {}
+                        if arr[y][x] not in weights[elem][dr]:
+                            weights[elem][dr][arr[y][x]] = 1
+
+                        allowed[elem][dr].add(arr[y][x])
+                        weights[elem][dr][arr[y][x]] += 1
             self.element_arrays[template.name] = arr
 
         # Set some more attributes
+        self.weights = weights
         self.element_ids = {
             x for x in range(len(self.elements))
         }  # Used as a base of allowed element ids
@@ -105,6 +111,9 @@ class Tilechecker:
         return around
 
     def pathfinding_steps(self, level, coords):
+        """Same as coords around, but return coords around 3 tiles away
+        :param level -> a tuple of coords
+        :returns     -> A tuple of surrounding coord tuples: (y+3,x), (y-3,x), (y,x+3), (y,x-3)"""
         y, x = coords
         around = ((y, x + 3), (y, x - 3), (y + 3, x), (y - 3, x))
         # Remove coordinates with negative values
@@ -115,7 +124,7 @@ class Tilechecker:
         return around
 
     def cube_around(self, level, coords):
-        """Return the coordinates around a given coordinate. Doesn't return out of bounds coordinates
+        """Return the coordinates around a given coordinate, with the corners also. Doesn't return out of bounds coordinates
         :param level -> a tuple of coords
         :returns     -> A tuple of surrounding coord tuples: (y+1,x), (y-1,x), (y,x+1), (y,x-1)"""
         y, x = coords
@@ -136,7 +145,7 @@ class Tilechecker:
         around = tuple((i for i in around if i[0] < hei and i[1] < wid))
         return around
 
-    def check_allowed(self, level, arr, poss, coords):
+    def check_allowed(self, level, arr, poss, coords, return_weights=False):
         """Check locations around a coordinate and return a set of element ids that are allowed in the coordinate
         :param level    -> Level object youre checking surroundings in
         :param arr      -> Numpy array of already decided elements
@@ -145,6 +154,7 @@ class Tilechecker:
         :return         -> A set of allowed element ids"""
 
         allowed = self.element_ids
+        weights = []
         for coord in self.coords_around(level, coords):
             dr = self.get_direction(coord, coords)
 
@@ -162,6 +172,10 @@ class Tilechecker:
                     allow = self.allowed[arr[y][x]][dr]
 
             allowed = set.intersection(allowed, allow)
+        if return_weights:
+            # TODO: keksi miten tehä ne weightit
+            pass
+
         return allowed
 
     def scan_elements(self, level, array, poss, coords):
@@ -208,6 +222,7 @@ class Tilechecker:
             propagations.extend([x for x in self.coords_around(level, coords)])
 
     def debug_element(self, level, arr, poss, element_id):
+        """Check all locations where element_id is currently allowed and write it to the level."""
         for k, v in poss.items():
             y, x = k
             if element_id in v:
@@ -288,6 +303,7 @@ class Tilechecker:
 
 
 def fill_path(path):
+    # The pathfinding moves in steps of 3, so fill in the blank coordinates
     filled_path = []
     prev_coord = False
     for coord in path:
@@ -314,6 +330,9 @@ def fill_path(path):
 
 
 def find_path(arr, from_coords, to_coords):
+    """Dijkstras pathfinding algo that moves in steps of 3.
+    to_coords can be a list of coordinates
+    If it is, move from from_coords -> to_coords[0] then to_coords[0] -> to_coords[1]....."""
     path_steps = []
     for end_coord in to_coords:
         visited = set()
@@ -350,6 +369,10 @@ def find_path(arr, from_coords, to_coords):
 
 
 def create_path(arr, from_coords, to_coords):
+    """Dijkstras pathfinding algo that moves in steps of 3.
+    to_coords can be a list of coordinates
+    If it is, move from from_coords -> to_coords[0] then to_coords[0] -> to_coords[1].....
+    Finds out the shortest path, then puts a random amount of obstacles in the way to create wiggliness, then find path again"""
     timer = time.perf_counter()
     arr = copy.deepcopy(arr)
     open_cells = list(zip(*np.nonzero(arr == -1)))
@@ -358,7 +381,7 @@ def create_path(arr, from_coords, to_coords):
     wiggliness_reduction = 0.6  # Percentage
     while True:
         if not open_cells:
-            print("Creating the path  took", time.perf_counter() - timer)
+            print("Finding out the path took", time.perf_counter() - timer)
             return witness
         c = open_cells.pop(0)
         y, x = c
@@ -371,6 +394,7 @@ def create_path(arr, from_coords, to_coords):
 
 
 def largen_path(level, path):
+    """Walk through path and append all coordinates around it to the path. Widens the path by 2"""
     large_path = set()
     for coord in path:
         large_path = large_path | {tuple(x) for x in checker.cube_around(level, coord)}
@@ -409,7 +433,6 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     checker.propagate_elements(target, arr, poss, coords)
 
 # Create the path
-# path = create_path(arr, (3, 1), [(15, 34), (15, 1)])
 path = create_path(arr, (3, 1), [(27, 55), (15, 1)])
 path = largen_path(target, path)
 

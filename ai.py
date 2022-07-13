@@ -97,25 +97,15 @@ class Tilechecker:
             return "East"
         return False
 
-    def coords_around(self, level, coords):
-        """Return the coordinates around a given coordinate. Doesn't return out of bounds coordinates
-        :param level -> a tuple of coords
-        :returns     -> A tuple of surrounding coord tuples: (y+1,x), (y-1,x), (y,x+1), (y,x-1)"""
-        y, x = coords
-        around = ((y, x + 1), (y, x - 1), (y + 1, x), (y - 1, x))
-        # Remove coordinates with negative values
-        around = tuple((i for i in around if i[0] >= 0 and i[1] >= 0))
-        # Remove coordinates that exceed boundaries
-        wid, hei = self.div_16(level.size)
-        around = tuple((i for i in around if i[0] < hei and i[1] < wid))
-        return around
-
-    def pathfinding_steps(self, level, coords):
+    def coords_around(self, level, coords, steps=1):
         """Same as coords around, but return coords around 3 tiles away
-        :param level -> a tuple of coords
-        :returns     -> A tuple of surrounding coord tuples: (y+3,x), (y-3,x), (y,x+3), (y,x-3)"""
+        :param level  -> the level to select coords in
+        :param coords -> a tuple of coords
+        :param steps  -> How many steps away to return coordinates from
+        :returns      -> A tuple of surrounding coord tuples: (y+steps,x), (y-steps,x), (y,x+steps), (y,x-steps)"""
         y, x = coords
-        around = ((y, x + 3), (y, x - 3), (y + 3, x), (y - 3, x))
+        s = steps
+        around = ((y, x + s), (y, x - s), (y + s, x), (y - s, x))
         # Remove coordinates with negative values
         around = tuple((i for i in around if i[0] >= 0 and i[1] >= 0))
         # Remove coordinates that exceed boundaries
@@ -329,18 +319,29 @@ def fill_path(path):
     return filled_path
 
 
+def end_close_enough(coords, end):
+    y, x = coords  # Coords y and x
+    e_y, e_x = end  # End loc y and x
+    if x == e_x and abs(y - e_y) < 3:
+        return True
+    if y == e_y and abs(x - e_x) < 3:
+        return True
+    return False
+
+
 def find_path(arr, from_coords, to_coords):
     """Dijkstras pathfinding algo that moves in steps of 3.
     to_coords can be a list of coordinates
     If it is, move from from_coords -> to_coords[0] then to_coords[0] -> to_coords[1]....."""
     path_steps = []
+    y, x = from_coords
     for end_coord in to_coords:
         visited = set()
         path = {from_coords: [from_coords]}
         current = from_coords
         while current:
             # TODO: mby move coords_around outside of the tilechecker
-            for coord in checker.pathfinding_steps(target, current):
+            for coord in checker.coords_around(target, current, steps=3):
                 y, x = coord
                 dist = len(path[current]) + 1
                 if coord not in path or dist < len(path[coord]):
@@ -348,8 +349,10 @@ def find_path(arr, from_coords, to_coords):
 
             visited.add(current)
             if current == end_coord:
-                from_coords = current
                 path_steps.extend(path[end_coord])
+                break
+            if end_close_enough(current, end_coord):
+                path_steps.extend(path[current])
                 break
             next = None
             for c, p in path.items():
@@ -377,7 +380,8 @@ def create_path(arr, from_coords, to_coords):
     arr = copy.deepcopy(arr)
     open_cells = list(zip(*np.nonzero(arr == -1)))
     random.shuffle(open_cells)
-    witness = find_path(arr, from_coords, to_coords)
+    if not (witness := find_path(arr, from_coords, to_coords)):
+        raise Exception(f"Could not find a path from {from_coords} to {to_coords}")
     wiggliness_reduction = 0.6  # Percentage
     while True:
         if not open_cells:
@@ -433,7 +437,7 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     checker.propagate_elements(target, arr, poss, coords)
 
 # Create the path
-path = create_path(arr, (3, 1), [(27, 55), (15, 1)])
+path = create_path(arr, (15, 1), [(16, 55), (30, 27)])
 path = largen_path(target, path)
 
 tmp_arr = copy.deepcopy(arr)

@@ -135,7 +135,7 @@ class Tilechecker:
         around = tuple((i for i in around if i[0] < hei and i[1] < wid))
         return around
 
-    def check_allowed(self, level, arr, poss, coords, return_weights=False):
+    def check_allowed(self, level, arr, poss, coords):
         """Check locations around a coordinate and return a set of element ids that are allowed in the coordinate
         :param level    -> Level object youre checking surroundings in
         :param arr      -> Numpy array of already decided elements
@@ -144,7 +144,6 @@ class Tilechecker:
         :return         -> A set of allowed element ids"""
 
         allowed = self.element_ids
-        weights = []
         for coord in self.coords_around(level, coords):
             dr = self.get_direction(coord, coords)
 
@@ -162,9 +161,6 @@ class Tilechecker:
                     allow = self.allowed[arr[y][x]][dr]
 
             allowed = set.intersection(allowed, allow)
-        if return_weights:
-            # TODO: keksi miten tehä ne weightit
-            pass
 
         return allowed
 
@@ -291,6 +287,28 @@ class Tilechecker:
                     layer["gridTiles"].append(tile)
         level.write()
 
+    def get_weights(self, arr, selection):
+        """Calculate the weights for a selection from poss
+        :param arr       -> Array containing the mapped elements
+        :param selection -> A value selected from poss eg.((y, x), {1, 2, 3})
+        :returns         -> A list of weights to be used in np.random.choice(..., p=)"""
+        from_coords, elements = selection
+        weights = {x: 0 for x in elements}
+        for coords in self.coords_around(target, from_coords):
+            y, x = coords
+            from_elem = arr[y][x]
+            dr = self.get_direction(coords, from_coords)
+            for elem in weights.keys():
+                if elem in self.weights[from_elem][dr]:
+                    weights[elem] += self.weights[from_elem][dr][elem]
+        # Weights doesnt always find the elements around it. In that case, dont handle this element right now
+        # Not sure if this is correct behaviour
+        total = sum([x for x in weights.values()])
+        if total == 0:
+            return False
+        weights = [x / total for x in weights.values()]
+        return weights
+
 
 def fill_path(path):
     # The pathfinding moves in steps of 3, so fill in the blank coordinates
@@ -300,6 +318,9 @@ def fill_path(path):
         if prev_coord:
             y, x = coord
             prev_y, prev_x = prev_coord
+            if abs(y - prev_y) > 3 or abs(x - prev_x) > 3:
+                prev_coord = coord
+                continue
             if y != prev_y:
                 if y > prev_y:
                     for y in range(prev_y + 1, y):
@@ -337,8 +358,12 @@ def find_path(arr, from_coords, to_coords):
     y, x = from_coords
     for end_coord in to_coords:
         visited = set()
-        path = {from_coords: [from_coords]}
-        current = from_coords
+        # First iteration draw a straight path. The ones after that start from the middle of the current known path
+        if path_steps:
+            current = path_steps[len(path_steps) // 2]
+        else:
+            current = from_coords
+        path = {current: [current]}
         while current:
             # TODO: mby move coords_around outside of the tilechecker
             for coord in checker.coords_around(target, current, steps=3):
@@ -430,6 +455,7 @@ poss = {coords: checker.element_ids for coords in list(zip(*np.nonzero(arr == -1
 
 # Map all targets pre-set elements to the array
 checker.map_elements(target, ele_arr, skip_empty=True)
+print("Mapped elements", time.perf_counter() - timer)
 
 # Update poss with information about pre-set elements
 for coords in list(zip(*np.nonzero(ele_arr != -1))):
@@ -438,32 +464,47 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     poss.pop(coords)
     checker.propagate_elements(target, arr, poss, coords)
 
+print("Pre-set elements", time.perf_counter() - timer)
 # Create the path
 path = create_path(arr, (15, 1), [(15, 55), (30, 27)])
 path = largen_path(target, path)
 
+# for coord in path:
+#     y, x = coord
+#     if arr[y][x] == -1:
+#         arr[y][x] = 1
+# checker.write_elements(target, arr)
+# break
+
 tmp_arr = copy.deepcopy(arr)
 tmp_poss = copy.deepcopy(poss)
+grass_element = checker.element_arrays[roads.name][0][0]
 for coord in list(zip(*np.nonzero(arr == -1))):
     if coord not in path:
         y, x = coord
         # TODO: This is stupid
         # Fetch top left element of the level that contians roads (usually the grass tile)
-        tmp_arr[y][x] = checker.element_arrays[roads.name][0][0]
+        tmp_arr[y][x] = grass_element
         tmp_poss.pop(coord)
         checker.propagate_elements(target, tmp_arr, tmp_poss, coord)
 
 # tmp_arr is full of grass with the road carved out
 while -1 in tmp_arr:
-    if not [x for x in tmp_poss.values() if len(x) > 0]:
-        print("out of opitnos")
+    try:
+        min_opt = min([len(v) for k, v in tmp_poss.items() if k in path and len(v) > 0])
+    except ValueError:
+        print("Out of optinos")
         break
-    min_opt = min([len(v) for k, v in tmp_poss.items() if k in path and len(v) > 0])
+
     select_poss = {k: v for k, v in tmp_poss.items() if k in path and len(v) == min_opt}
     selected = random.choice(list(select_poss.items()))
 
+    if not (weights := checker.get_weights(arr, selected)):
+        continue
+    print(selected[1], weights)
+    element_id = np.random.choice(list(selected[1]), p=weights)
+
     coord = (y, x) = selected[0]
-    element_id = random.choice(list(selected[1]))
 
     tmp_poss.pop(coord)
     poss.pop(coord)
@@ -490,28 +531,12 @@ while -1 in arr:
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
     selected = random.choice(list(select_poss.items()))
-    # Tää osio on paskana
-    weights = {x: 0 for x in selected[1]}
-    for coords in checker.coords_around(target, selected[0]):
-        y, x = coords
-        elem_id = arr[y][x]
-        dr = checker.get_direction(selected[0], coords)
-        for elem in weights.keys():
-            if arr[y][x] == elem:
-                weights[elem] += checker.weights[elem_id][dr][elem]
-    print(weights)
-    a = checker.weights[1]["East"][1]
-    b = checker.weights[1]["East"][5]
-    a
-    b
-    total
-    total = a + b
-    a / total
-    b / total
-    # TODO: Lisää ne painotukset :DDD
-    # Pitää jotenki laskee ne palikat kaikista suunnista ja sit kattoo joku keskiarvo
 
-    element_id = random.choice(list(selected[1]))
+    if not (weights := checker.get_weights(arr, selected)):
+        continue
+    print(weights)
+    element_id = np.random.choice(list(selected[1]), p=weights)
+
     y, x = selected[0]
 
     arr[y][x] = element_id

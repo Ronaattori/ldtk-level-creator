@@ -351,8 +351,10 @@ def find_path(arr, from_coords, to_coords):
             if current == end_coord:
                 path_steps.extend(path[end_coord])
                 break
+            # If under 3 tiles away in on direction from the end, add current path + end coord to the final path
+            # fill_path will fill the skipped coordinates
             if end_close_enough(current, end_coord):
-                path_steps.extend(path[current])
+                path_steps.extend(path[current] + [end_coord])
                 break
             next = None
             for c, p in path.items():
@@ -437,7 +439,7 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
     checker.propagate_elements(target, arr, poss, coords)
 
 # Create the path
-path = create_path(arr, (15, 1), [(16, 55), (30, 27)])
+path = create_path(arr, (15, 1), [(15, 55), (30, 27)])
 path = largen_path(target, path)
 
 tmp_arr = copy.deepcopy(arr)
@@ -467,7 +469,7 @@ while -1 in tmp_arr:
     poss.pop(coord)
 
     tmp_arr[y][x] = element_id
-    checker.scan_elements(target, tmp_arr, tmp_poss, coord)
+    checker.propagate_elements(target, tmp_arr, tmp_poss, coord)
 
     arr[y][x] = element_id
     checker.propagate_elements(target, arr, poss, coord)
@@ -488,6 +490,26 @@ while -1 in arr:
     select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
 
     selected = random.choice(list(select_poss.items()))
+    # Tää osio on paskana
+    weights = {x: 0 for x in selected[1]}
+    for coords in checker.coords_around(target, selected[0]):
+        y, x = coords
+        elem_id = arr[y][x]
+        dr = checker.get_direction(selected[0], coords)
+        for elem in weights.keys():
+            if arr[y][x] == elem:
+                weights[elem] += checker.weights[elem_id][dr][elem]
+    print(weights)
+    a = checker.weights[1]["East"][1]
+    b = checker.weights[1]["East"][5]
+    a
+    b
+    total
+    total = a + b
+    a / total
+    b / total
+    # TODO: Lisää ne painotukset :DDD
+    # Pitää jotenki laskee ne palikat kaikista suunnista ja sit kattoo joku keskiarvo
 
     element_id = random.choice(list(selected[1]))
     y, x = selected[0]

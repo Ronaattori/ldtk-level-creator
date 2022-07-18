@@ -2,6 +2,7 @@ import random
 from typing import Iterable
 from level import Level
 from world import World
+from ldtkcmanager import LdtkcManager
 from pathlib import Path
 import copy
 import numpy as np
@@ -14,39 +15,33 @@ world = World("world/world.ldtk")
 
 class Tilechecker:
     """Object for various operations regarding elements and tile placing rules
-    :param target    -> The Level object youre working to fill
-    :param templates -> A list of Level objects to use as level building templates"""
+    :param template_ndarrays -> A list of ndarrays with level tiles mapped onto them"""
 
-    def __init__(self, target, templates: list):
-        self.target = target
-        self.templates = templates
+    def __init__(self, template_ndarrays: list):
+        self.templates = template_ndarrays
         self.allowed = self._build_rules()
 
     def _build_rules(self):
         """Builds the ruleset from the template. Keys and value inside a direction are element ids,
-        which are the index of the item in self.elements
+        which are the index of the item in self.elements. Also counts how many times what element was next to what element.
         eg. {0: {"North": {1, 2, 3}, "South": {5, 4, 9}}, 1: {"North": {}.....
         :return -> The ruleset"""
-        # template
         timer = time.perf_counter()
         self.elements = []
-        self.element_arrays = {}
 
         allowed = {}
         weights = {}
-        for template in self.templates:
-            wid, hei = self.div_16(template.size)
-            arr = np.full((hei, wid), -1, int)
-
-            # Skip empty to make combining templates easier
-            self.map_elements(template, arr, add_new_elements=True, skip_empty=True)
-
+        for template_ndarray in self.templates:
+            arr = self.map_elements(
+                template_ndarray, skip_empty=True, add_new_elements=True
+            )
+            hei, wid = arr.shape
             # Go through each tile and append all surrounding tiles to a dict
             # Also take a note of how many times an element was next to another, and on what side (for weights)
             for i, element in enumerate(np.nditer(arr)):
                 elem = int(element)
                 coords = [i // wid, i % wid]
-                for coord in self.coords_around(template, coords):
+                for coord in self.coords_around(arr, coords):
                     y, x = coord
                     dr = self.get_direction(coords, coord)
                     elem_id = arr[y][x]
@@ -62,7 +57,6 @@ class Tilechecker:
 
                         allowed[elem][dr].add(arr[y][x])
                         weights[elem][dr][arr[y][x]] += 1
-            self.element_arrays[template.name] = arr
 
         # Set some more attributes
         self.weights = weights
@@ -97,9 +91,9 @@ class Tilechecker:
             return "East"
         return False
 
-    def coords_around(self, level, coords, steps=1):
+    def coords_around(self, array, coords, steps=1):
         """Same as coords around, but return coords around 3 tiles away
-        :param level  -> the level to select coords in
+        :param array  -> 2darray of the level youre working to fill
         :param coords -> a tuple of coords
         :param steps  -> How many steps away to return coordinates from
         :returns      -> A tuple of surrounding coord tuples: (y+steps,x), (y-steps,x), (y,x+steps), (y,x-steps)"""
@@ -109,14 +103,14 @@ class Tilechecker:
         # Remove coordinates with negative values
         around = tuple((i for i in around if i[0] >= 0 and i[1] >= 0))
         # Remove coordinates that exceed boundaries
-        wid, hei = self.div_16(level.size)
+        hei, wid = array.shape
         around = tuple((i for i in around if i[0] < hei and i[1] < wid))
         return around
 
-    def cube_around(self, level, coords):
+    def cube_around(self, array, coords):
         """Return the coordinates around a given coordinate, with the corners also. Doesn't return out of bounds coordinates
-        :param level -> a tuple of coords
-        :returns     -> A tuple of surrounding coord tuples: (y+1,x), (y-1,x), (y,x+1), (y,x-1)"""
+        :param array  -> 2darray of the level youre working to fill
+        :returns      -> A tuple of surrounding coord tuples: (y+1,x), (y-1,x), (y,x+1), (y,x-1)"""
         y, x = coords
         around = (
             (y, x + 1),
@@ -131,20 +125,19 @@ class Tilechecker:
         # Remove coordinates with negative values
         around = tuple((i for i in around if i[0] >= 0 and i[1] >= 0))
         # Remove coordinates that exceed boundaries
-        wid, hei = self.div_16(level.size)
+        hei, wid = array.shape
         around = tuple((i for i in around if i[0] < hei and i[1] < wid))
         return around
 
-    def check_allowed(self, level, arr, poss, coords):
+    def check_allowed(self, arr, poss, coords):
         """Check locations around a coordinate and return a set of element ids that are allowed in the coordinate
-        :param level    -> Level object youre checking surroundings in
         :param arr      -> Numpy array of already decided elements
         :param poss     -> A dict of remaining coordinates' possible elements
         :param coords   -> A tuple of coords to check surroundings from (y, x)
         :return         -> A set of allowed element ids"""
 
         allowed = self.element_ids
-        for coord in self.coords_around(level, coords):
+        for coord in self.coords_around(arr, coords):
             dr = self.get_direction(coord, coords)
 
             allow = set()
@@ -164,10 +157,9 @@ class Tilechecker:
 
         return allowed
 
-    def scan_elements(self, level, array, poss, coords):
+    def scan_elements(self, array, poss, coords):
         """Brute force 'propagation' algorithm
         If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
-        :param level  -> Level object youre working to fill
         :param array  -> Numpy array of already set elements
         :param poss   -> A dict of remaining coordinates' possible elements
         :param coords -> A tuple of coords from where to start the process
@@ -181,31 +173,30 @@ class Tilechecker:
             # propagations = [x for x in self.coords_around(level, coords)]
             while propagations:
                 coords = propagations.pop(0)
-                allowed = self.check_allowed(level, array, poss, coords)
+                allowed = self.check_allowed(array, array, poss, coords)
                 if poss[coords] == allowed:
                     continue
                 poss[coords] = allowed
                 solving = True
 
-    def propagate_elements(self, level, array, poss, coords):
+    def propagate_elements(self, array, poss, coords):
         """Process the influence of setting an element to the rest of the level.
         Add coords surrounding coordinates to a list, check their allowed tiles and update poss if needed.
         If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
-        :param level  -> Level object youre working to fill
         :param array  -> Numpy array of already set elements
         :param poss   -> A dict of remaining coordinates' possible elements
         :param coords -> A tuple of coords from where to start the process
         """
-        propagations = [x for x in self.coords_around(level, coords)]
+        propagations = [x for x in self.coords_around(array, coords)]
         while propagations:
             coords = propagations.pop(0)
             if coords not in poss:
                 continue
-            allowed = self.check_allowed(level, array, poss, coords)
+            allowed = self.check_allowed(array, poss, coords)
             if poss[coords] == allowed:
                 continue
             poss[coords] = allowed
-            propagations.extend([x for x in self.coords_around(level, coords)])
+            propagations.extend([x for x in self.coords_around(array, coords)])
 
     def debug_element(self, level, arr, poss, element_id):
         """Check all locations where element_id is currently allowed and write it to the level."""
@@ -215,23 +206,15 @@ class Tilechecker:
                 arr[y][x] = element_id
         self.write_elements(level, arr)
 
-    def map_elements(self, level, array, skip_empty=False, add_new_elements=False):
+    def map_elements(self, ndarray, skip_empty=False, add_new_elements=False):
         """Convert tiles in level to elements and map the ids to array
-        :param level                  -> Target Level object to work in
-        :param array                  -> Numpy array to map element ids into
+        :param ndarray                -> ndarray that has all level tile info
         :param skip_empty=False       -> Skip mapping elements of only 0s
         :param add_new_elements=False -> Add new elements into self.elements as they are found"""
-        wid, hei = [x // 16 for x in level.size]
-        depth = len(level.layers)
-        ndarray = np.zeros((depth, hei, wid), int)
-
-        # Map all known tiles into an ndarray
-        for d, layer in enumerate(level.layers.values()):
-            for tile in layer["gridTiles"]:
-                x, y = self.div_16(tile["px"])
-                ndarray[d][y][x] = tile["t"]
 
         # Create a list of elements and map them to a 2darray
+        depth, hei, wid = ndarray.shape
+        array = np.full((hei, wid), -1, int)
         for x in range(wid):
             for y in range(hei):
                 element = []
@@ -253,6 +236,7 @@ class Tilechecker:
                     )
 
                 array[y][x] = self.elements.index(element)
+        return array
 
     def write_elements(self, level, array):
         """Write elements mapped in array to level
@@ -294,7 +278,7 @@ class Tilechecker:
         :returns         -> A list of weights to be used in np.random.choice(..., p=)"""
         from_coords, elements = selection
         weights = {x: 0 for x in elements}
-        for coords in self.coords_around(target, from_coords):
+        for coords in self.coords_around(arr, from_coords):
             y, x = coords
             from_elem = arr[y][x]
             dr = self.get_direction(coords, from_coords)
@@ -350,10 +334,12 @@ def end_close_enough(coords, end):
     return False
 
 
-def find_path(arr, from_coords, to_coords):
+def find_path(arr, from_coords, to_coords: list):
     """Dijkstras pathfinding algo that moves in steps of 3.
-    to_coords can be a list of coordinates
-    If it is, move from from_coords -> to_coords[0] then to_coords[0] -> to_coords[1]....."""
+    First goes from A to B, then from the middle of the just created path to C and so on....
+    :param arr -> The array with mapped elements
+    :param from_coords -> A tuple of coordinates to start from
+    :param to_coords   -> A list of tuples of coordinates to coordinate to"""
     path_steps = []
     y, x = from_coords
     for end_coord in to_coords:
@@ -366,7 +352,7 @@ def find_path(arr, from_coords, to_coords):
         path = {current: [current]}
         while current:
             # TODO: mby move coords_around outside of the tilechecker
-            for coord in checker.coords_around(target, current, steps=3):
+            for coord in checker.coords_around(arr, current, steps=3):
                 y, x = coord
                 dist = len(path[current]) + 1
                 if coord not in path or dist < len(path[coord]):
@@ -398,11 +384,12 @@ def find_path(arr, from_coords, to_coords):
     return final_path
 
 
-def create_path(arr, from_coords, to_coords):
-    """Dijkstras pathfinding algo that moves in steps of 3.
-    to_coords can be a list of coordinates
-    If it is, move from from_coords -> to_coords[0] then to_coords[0] -> to_coords[1].....
-    Finds out the shortest path, then puts a random amount of obstacles in the way to create wiggliness, then find path again"""
+def create_path(arr, from_coords, to_coords: list):
+    """Uses dijkstras pathfinding algo, and creates wiggliness in the shortest path found
+    First goes from A to B, then from the middle of the just created path to C and so on....
+    :param arr -> The array with mapped elements
+    :param from_coords -> A tuple of coordinates to start from
+    :param to_coords   -> A list of tuples of coordinates to coordinate to"""
     timer = time.perf_counter()
     arr = copy.deepcopy(arr)
     open_cells = list(zip(*np.nonzero(arr == -1)))
@@ -424,13 +411,33 @@ def create_path(arr, from_coords, to_coords):
                 witness = new_path
 
 
-def largen_path(level, path):
+def largen_path(array, path):
     """Walk through path and append all coordinates around it to the path. Widens the path by 2"""
     large_path = set()
     for coord in path:
-        large_path = large_path | {tuple(x) for x in checker.cube_around(level, coord)}
+        large_path = large_path | {tuple(x) for x in checker.cube_around(array, coord)}
     # large_path == 3 wide
     return large_path
+
+
+def create_ndarray(level, ldtkc=False):
+    if ldtkc:
+        # TODO: Implement ldtkc creation
+        wid, hei = level["orig_dimensions"]
+        depth = len(manager.tile_layers(level))
+        ndarray = np.zeros((depth, hei, wid), int)
+
+    else:
+        wid, hei = [x // 16 for x in level.size]
+        depth = len(level.layers)
+        ndarray = np.zeros((depth, hei, wid), int)
+
+        # Map all known tiles into an ndarray
+        for d, layer in enumerate(level.layers.values()):
+            for tile in layer["gridTiles"]:
+                x, y = [a // 16 for a in tile["px"]]
+                ndarray[d][y][x] = tile["t"]
+    return ndarray
 
 
 level1 = Level(world, ROOT / "0001-Template.ldtkl")  # 1x3 template
@@ -442,51 +449,50 @@ roads3w = Level(world, ROOT / "0005-Roads2.ldtkl")  # 3 wide roads
 
 target = Level(world, ROOT / "0002-Target.ldtkl")
 
-checker = Tilechecker(target, [level3, roads])
-
-wid, hei = size = [x // 16 for x in target.size]
-ele_arr = np.full((hei, wid), -1, int)
-arr = np.full((hei, wid), -1, int)
+templates = [level3, roads]
+# TODO: Create separate checkers for road and non-road sections
+checker = Tilechecker([create_ndarray(x) for x in templates])
 
 timer = time.perf_counter()
 
-# Initialize poss with all coords having all options
-poss = {coords: checker.element_ids for coords in list(zip(*np.nonzero(arr == -1)))}
-
 # Map all targets pre-set elements to the array
-checker.map_elements(target, ele_arr, skip_empty=True)
-print("Mapped elements", time.perf_counter() - timer)
+ndarray = create_ndarray(target)
+ele_arr = checker.map_elements(ndarray, skip_empty=True)
+
+# Level dimensions
+hei, wid = ele_arr.shape
+
+# Initialize poss with all coords having all options
+poss = {
+    (i // wid, i % wid): checker.element_ids for i, _ in enumerate(np.nditer(ele_arr))
+}
 
 # Update poss with information about pre-set elements
+arr = np.full((ele_arr.shape), -1, int)
 for coords in list(zip(*np.nonzero(ele_arr != -1))):
     y, x = coords
     arr[y][x] = ele_arr[y][x]
     poss.pop(coords)
-    checker.propagate_elements(target, arr, poss, coords)
+    checker.propagate_elements(arr, poss, coords)
 
 print("Pre-set elements", time.perf_counter() - timer)
+
 # Create the path
 path = create_path(arr, (15, 1), [(15, 55), (30, 27)])
-path = largen_path(target, path)
-
-# for coord in path:
-#     y, x = coord
-#     if arr[y][x] == -1:
-#         arr[y][x] = 1
-# checker.write_elements(target, arr)
-# break
+path = largen_path(arr, path)
 
 tmp_arr = copy.deepcopy(arr)
 tmp_poss = copy.deepcopy(poss)
-grass_element = checker.element_arrays[roads.name][0][0]
+# grass_element = checker.element_arrays[roads.name][0][0]
+grass_element = 1  # TODO: This is the most stupid part of this code
 for coord in list(zip(*np.nonzero(arr == -1))):
     if coord not in path:
         y, x = coord
         # TODO: This is stupid
-        # Fetch top left element of the level that contains roads (usually the grass tile)
+        # Fetch top left element of the level that contains roads (usually/hopefully the grass tile)
         tmp_arr[y][x] = grass_element
         tmp_poss.pop(coord)
-        checker.propagate_elements(target, tmp_arr, tmp_poss, coord)
+        checker.propagate_elements(tmp_arr, tmp_poss, coord)
 
 # tmp_arr is full of grass with the road carved out
 while -1 in tmp_arr:
@@ -501,7 +507,6 @@ while -1 in tmp_arr:
 
     if not (weights := checker.get_weights(arr, selected)):
         continue
-    print(selected[1], weights)
     element_id = np.random.choice(list(selected[1]), p=weights)
 
     coord = (y, x) = selected[0]
@@ -510,10 +515,10 @@ while -1 in tmp_arr:
     poss.pop(coord)
 
     tmp_arr[y][x] = element_id
-    checker.propagate_elements(target, tmp_arr, tmp_poss, coord)
+    checker.propagate_elements(tmp_arr, tmp_poss, coord)
 
     arr[y][x] = element_id
-    checker.propagate_elements(target, arr, poss, coord)
+    checker.propagate_elements(arr, poss, coord)
 
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
@@ -534,7 +539,6 @@ while -1 in arr:
 
     if not (weights := checker.get_weights(arr, selected)):
         continue
-    print(weights)
     element_id = np.random.choice(list(selected[1]), p=weights)
 
     y, x = selected[0]
@@ -542,7 +546,7 @@ while -1 in arr:
     arr[y][x] = element_id
     poss.pop(selected[0])  # coord is now set. Remove it from possible options
 
-    checker.propagate_elements(target, arr, poss, (y, x))
+    checker.propagate_elements(arr, poss, (y, x))
 
 
 print("Running time:", int(time.perf_counter() - timer), "s")

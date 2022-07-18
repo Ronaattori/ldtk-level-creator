@@ -483,7 +483,7 @@ for coord in list(zip(*np.nonzero(arr == -1))):
     if coord not in path:
         y, x = coord
         # TODO: This is stupid
-        # Fetch top left element of the level that contians roads (usually the grass tile)
+        # Fetch top left element of the level that contains roads (usually the grass tile)
         tmp_arr[y][x] = grass_element
         tmp_poss.pop(coord)
         checker.propagate_elements(target, tmp_arr, tmp_poss, coord)

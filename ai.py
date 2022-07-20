@@ -10,6 +10,7 @@ import numpy as np
 import time
 
 ROOT = Path("world/world")
+MULTIPLIER = 1000
 
 world = World("world/world.ldtk")
 
@@ -239,39 +240,60 @@ class Tilechecker:
                 array[y][x] = self.elements.index(element)
         return array
 
-    def write_elements(self, level, array):
+    def write_elements(self, level, array, ldtkc=False):
         """Write elements mapped in array to level
         :param level -> Target Level object to write to
         :param array -> Numpy array that contains the mapped elements"""
         tile_template = {"px": [128, 128], "src": [96, 16], "f": 0, "t": 14, "d": [136]}
         hei, wid = array.shape
 
-        # Empty all layers
-        for layer in level.layers.values():
-            layer["gridTiles"] = []
-
         # Go over the array and write each found element to the level
-        for y in range(array.shape[0]):
-            for x in range(array.shape[1]):
-                element_id = array[y][x]
-                if element_id == -1:
-                    continue
-
-                element = self.elements[element_id]
-                for i, layer in enumerate(level.layers.values()):
-                    t = element[i]
-                    if t == 0:
+        if ldtkc:
+            for y in range(hei):
+                for x in range(wid):
+                    element_id = array[y, x]
+                    if element_id == -1:
                         continue
-                    tile = copy.deepcopy(tile_template)
+                    element = checker.elements[element_id]
+                    # For tile layer in the level
+                    for i, layer in enumerate(
+                        [x for x in level["layers"] if x[0] == "TILES"]
+                    ):
+                        t = element[i]
+                        layer = layer[2][0]
 
-                    tile["px"] = [int(x) * 16, int(y) * 16]
-                    tile["d"] = [int(level.coordToInt((x, y), wid))]
+                        t_x = t // MULTIPLIER
+                        t_y = t % MULTIPLIER
+                        t_x += 1
 
-                    tile["src"] = level.tToSrc(t)
-                    tile["t"] = int(t)
+                        layer[y, x][0] = t_x
+                        layer[y, x][1] = t_y
+            manager.write()
+        else:
+            # Empty all layers
+            for layer in level.layers.values():
+                layer["gridTiles"] = []
+            for y in range(array.shape[0]):
+                for x in range(array.shape[1]):
+                    element_id = array[y][x]
+                    if element_id == -1:
+                        continue
 
-                    layer["gridTiles"].append(tile)
-        level.write()
+                    element = self.elements[element_id]
+                    for i, layer in enumerate(level.layers.values()):
+                        t = element[i]
+                        if t == 0:
+                            continue
+                        tile = copy.deepcopy(tile_template)
+
+                        tile["px"] = [int(x) * 16, int(y) * 16]
+                        tile["d"] = [int(level.coordToInt((x, y), wid))]
+
+                        tile["src"] = level.tToSrc(t)
+                        tile["t"] = int(t)
+
+                        layer["gridTiles"].append(tile)
+            level.write()
 
     def get_weights(self, arr, selection):
         """Calculate the weights for a selection from poss
@@ -279,14 +301,25 @@ class Tilechecker:
         :param selection -> A value selected from poss eg.((y, x), {1, 2, 3})
         :returns         -> A list of weights to be used in np.random.choice(..., p=)"""
         from_coords, elements = selection
+
+        # If surrounding are still empty, return weights with all values valued the same
+        if not [
+            1
+            for coord in self.coords_around(arr, from_coords)
+            if arr[coord[0], coord[1]] != -1
+        ]:
+            return [1 / len(elements) for x in range(len(elements))]
+
         weights = {x: 0 for x in elements}
         for coords in self.coords_around(arr, from_coords):
             y, x = coords
             from_elem = arr[y][x]
             dr = self.get_direction(coords, from_coords)
             for elem in weights.keys():
-                if elem in self.weights[from_elem][dr]:
-                    weights[elem] += self.weights[from_elem][dr][elem]
+                if from_elem in self.weights:
+                    if dr in self.weights[from_elem]:
+                        if elem in self.weights[from_elem][dr]:
+                            weights[elem] += self.weights[from_elem][dr][elem]
         # Weights doesnt always find the elements around it. In that case, dont handle this element right now
         # Not sure if this is correct behaviour
         total = sum([x for x in weights.values()])
@@ -298,11 +331,20 @@ class Tilechecker:
 
 def create_ndarray(level, ldtkc=False):
     if ldtkc:
-        # TODO: Implement ldtkc creation
         wid, hei = level["orig_dimensions"]
         depth = len(manager.tile_layers(level))
         ndarray = np.zeros((depth, hei, wid), int)
 
+        for d, layer in enumerate(manager.tile_layers(level)):
+            layer = layer[2]
+            for y in range(hei):
+                for x in range(wid):
+                    t_x, t_y = layer[0, y, x]
+                    if not t_x:
+                        continue
+                    t_x -= 1
+                    tile_id = t_y + t_x * MULTIPLIER
+                    ndarray[d][y][x] = tile_id
     else:
         wid, hei = [x // 16 for x in level.size]
         depth = len(level.layers)
@@ -323,17 +365,27 @@ level3 = Level(world, ROOT / "0000-L3_TypicalTown.ldtkl")  # The big level
 roads = Level(world, ROOT / "0004-Roads.ldtkl")  # 2 wide roads
 roads3w = Level(world, ROOT / "0005-Roads2.ldtkl")  # 3 wide roads
 
-target = Level(world, ROOT / "0002-Target.ldtkl")
 
-templates = [level3, roads]
 # TODO: Create separate checkers for road and non-road sections
-checker = Tilechecker([create_ndarray(x) for x in templates])
+
+
+# For LDTKC map creation
+manager = LdtkcManager("world.ldtkc")
+template = create_ndarray(manager.levels[4001], ldtkc=True)
+checker = Tilechecker([template])
+target = manager.levels[4000]
+
+# For LDTK map creation
+# target = Level(world, ROOT / "0002-Target.ldtkl")
+# templates = [level3, roads]
+# checker = Tilechecker([create_ndarray(x) for x in templates])
+
 pathfinder = Pathfinder(checker)
 
 timer = time.perf_counter()
 
 # Map all targets pre-set elements to the array
-ndarray = create_ndarray(target)
+ndarray = create_ndarray(target, ldtkc=True)
 ele_arr = checker.map_elements(ndarray, skip_empty=True)
 
 # Level dimensions
@@ -355,48 +407,48 @@ for coords in list(zip(*np.nonzero(ele_arr != -1))):
 print("Pre-set elements", time.perf_counter() - timer)
 
 # Create the path
-path = pathfinder.create_path(arr, (15, 1), [(15, 55), (30, 27)])
-path = pathfinder.largen_path(arr, path)
-
-tmp_arr = copy.deepcopy(arr)
-tmp_poss = copy.deepcopy(poss)
-# grass_element = checker.element_arrays[roads.name][0][0]
-grass_element = 1  # TODO: This is the most stupid part of this code
-for coord in list(zip(*np.nonzero(arr == -1))):
-    if coord not in path:
-        y, x = coord
-        # TODO: This is stupid
-        # Fetch top left element of the level that contains roads (usually/hopefully the grass tile)
-        tmp_arr[y][x] = grass_element
-        tmp_poss.pop(coord)
-        checker.propagate_elements(tmp_arr, tmp_poss, coord)
-
-# tmp_arr is full of grass with the road carved out
-while -1 in tmp_arr:
-    try:
-        min_opt = min([len(v) for k, v in tmp_poss.items() if k in path and len(v) > 0])
-    except ValueError:
-        print("Out of optinos")
-        break
-
-    select_poss = {k: v for k, v in tmp_poss.items() if k in path and len(v) == min_opt}
-    selected = random.choice(list(select_poss.items()))
-
-    if not (weights := checker.get_weights(arr, selected)):
-        continue
-    element_id = np.random.choice(list(selected[1]), p=weights)
-
-    coord = (y, x) = selected[0]
-
-    tmp_poss.pop(coord)
-    poss.pop(coord)
-
-    tmp_arr[y][x] = element_id
-    checker.propagate_elements(tmp_arr, tmp_poss, coord)
-
-    arr[y][x] = element_id
-    checker.propagate_elements(arr, poss, coord)
-
+# path = pathfinder.create_path(arr, (15, 1), [(15, 55), (30, 27)])
+# path = pathfinder.largen_path(arr, path)
+#
+# tmp_arr = copy.deepcopy(arr)
+# tmp_poss = copy.deepcopy(poss)
+# # grass_element = checker.element_arrays[roads.name][0][0]
+# grass_element = 1  # TODO: This is the most stupid part of this code
+# for coord in list(zip(*np.nonzero(arr == -1))):
+#     if coord not in path:
+#         y, x = coord
+#         # TODO: This is stupid
+#         # Fetch top left element of the level that contains roads (usually/hopefully the grass tile)
+#         tmp_arr[y][x] = grass_element
+#         tmp_poss.pop(coord)
+#         checker.propagate_elements(tmp_arr, tmp_poss, coord)
+#
+# # tmp_arr is full of grass with the road carved out
+# while -1 in tmp_arr:
+#     try:
+#         min_opt = min([len(v) for k, v in tmp_poss.items() if k in path and len(v) > 0])
+#     except ValueError:
+#         print("Out of optinos")
+#         break
+#
+#     select_poss = {k: v for k, v in tmp_poss.items() if k in path and len(v) == min_opt}
+#     selected = random.choice(list(select_poss.items()))
+#
+#     if not (weights := checker.get_weights(arr, selected)):
+#         continue
+#     element_id = np.random.choice(list(selected[1]), p=weights)
+#
+#     coord = (y, x) = selected[0]
+#
+#     tmp_poss.pop(coord)
+#     poss.pop(coord)
+#
+#     tmp_arr[y][x] = element_id
+#     checker.propagate_elements(tmp_arr, tmp_poss, coord)
+#
+#     arr[y][x] = element_id
+#     checker.propagate_elements(arr, poss, coord)
+#
 while -1 in arr:
     print(f"{len(arr[arr==-1])} tiles left to fill")
 
@@ -429,11 +481,11 @@ while -1 in arr:
 print("Running time:", int(time.perf_counter() - timer), "s")
 
 # Sort layer tiles by location for ease of reading
-for layer in target.layers:
-    if "gridTiles" in layer and layer["gridTiles"]:
-        layer["gridTiles"].sort(key=lambda x: x["d"][0])
+# for layer in target.layers:
+#     if "gridTiles" in layer and layer["gridTiles"]:
+#         layer["gridTiles"].sort(key=lambda x: x["d"][0])
 
 # Write elements mapped into arr to the target
-checker.write_elements(target, arr)
+checker.write_elements(target, arr, ldtkc=True)
 
 print("Wrote")

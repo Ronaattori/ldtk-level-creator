@@ -14,3 +14,18 @@ class LdtkcManager:
 
     def tile_layers(self, level):
         return [x for x in level["layers"] if x[0] == "TILES"]
+
+    def write(self):
+
+        world_data = {}
+
+        world_data["levels"] = self.level_data
+        world_data["world"] = self.world_data
+
+        f = BytesIO()
+        np.savez_compressed(f, **world_data)
+        f.seek(0)
+        out = f.read()
+
+        with open("world.ldtkc", "wb") as file:
+            file.write(out)

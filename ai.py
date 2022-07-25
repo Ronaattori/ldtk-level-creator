@@ -72,7 +72,6 @@ class Tilechecker:
                                 self.used_elements.add(arr[y, x])
                             allowed[elem][dr].add(arr[y][x])
                             weights[elem][dr][arr[y][x]] += 1
-                            checker.allowed
 
         # This will get explained to me later
         if self.log_weights:
@@ -487,7 +486,7 @@ while -1 in tmp_arr:
     roads.propagate_elements(tmp_arr, road_poss, coord)
 
     arr[y][x] = element_id
-checker.scan_elements(arr, poss)
+    checker.propagate_elements(arr, poss, coord)
 
 # Filter out non_place elements from poss
 poss = {k: set.intersection(v, checker.used_elements) for k, v in poss.items()}

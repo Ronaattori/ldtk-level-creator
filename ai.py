@@ -397,9 +397,9 @@ elements = []
 # ldtkc = True
 
 # For LDTK map creation
-template = Level(world, ROOT / "0001-L4_I1_Template.ldtkl")
+template = Level(world, ROOT / "0000-L4_I1_Template.ldtkl")
 road_template = Level(world, ROOT / "0005-L4_I2_Roads.ldtkl")
-target = Level(world, ROOT / "0000-L4_Snowtown.ldtkl")
+target = Level(world, ROOT / "0001-L4_Snowtown.ldtkl")
 
 templates = [create_ndarray(x) for x in [template]]
 non_place_templates = [create_ndarray(x) for x in [road_template]]
@@ -531,5 +531,3 @@ print("Running time:", int(time.perf_counter() - timer), "s")
 
 # Write elements mapped into arr to the target
 checker.write_elements(target, arr, ldtkc=ldtkc)
-
-print("Wrote")

@@ -78,7 +78,7 @@ class Pathfinder:
         random.shuffle(open_cells)
         if not (witness := self.find_path(arr, from_coords, to_coords)):
             raise Exception(f"Could not find a path from {from_coords} to {to_coords}")
-        wiggliness_reduction = 0.6  # Percentage
+        wiggliness_reduction = 0.0  # Percentage
         while True:
             if not open_cells:
                 print("Finding out the path took", time.perf_counter() - timer)
@@ -88,9 +88,8 @@ class Pathfinder:
             if c in witness:
                 if random.random() < wiggliness_reduction:
                     continue  # Reduce the wiggliness
-                arr[y][
-                    x
-                ] = 0  # find_path considers everything other than -1 as an obstacle
+                # find_path considers everything other than -1 as an obstacle
+                arr[y][x] = 0
                 if new_path := self.find_path(arr, from_coords, to_coords):
                     witness = new_path
 

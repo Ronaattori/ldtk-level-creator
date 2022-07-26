@@ -1,4 +1,4 @@
-from re import A
+import random
 from typing import Iterable
 from level import Level
 from world import World
@@ -23,16 +23,10 @@ class Tilechecker:
     def __init__(
         self, template_ndarrays: list, elements: list, non_place=[], log_weights=True
     ):
+        self.templates = template_ndarrays
         self.elements = elements
         self.used_elements = set()
-        self.templates = [
-            self.map_elements(x, skip_empty=True, add_new_elements=True)
-            for x in template_ndarrays
-        ]
-        self.non_place_templates = [
-            self.map_elements(x, skip_empty=True, add_new_elements=True)
-            for x in non_place
-        ]
+        self.non_place_templates = non_place
         self.log_weights = log_weights
         self.allowed = self._build_rules()
 
@@ -43,18 +37,17 @@ class Tilechecker:
         :return -> The ruleset"""
         timer = time.perf_counter()
 
-        # allowed = {}
+        allowed = {}
         weights = {}
-
-        n_ele = len(self.elements)
-        allowed = np.zeros((4, n_ele, n_ele), dtype="?")
-
         # for template_ndarray in self.templates:
         for non_place, templates in (
             (False, self.templates),
             (True, self.non_place_templates),
         ):
-            for arr in templates:
+            for template_ndarray in templates:
+                arr = self.map_elements(
+                    template_ndarray, skip_empty=True, add_new_elements=True
+                )
                 hei, wid = arr.shape
                 # Go through each tile and append all surrounding tiles to a dict
                 # Also take a note of how many times an element was next to another, and on what side (for weights)
@@ -63,22 +56,22 @@ class Tilechecker:
                     coords = [i // wid, i % wid]
                     for coord in self.coords_around(arr, coords):
                         y, x = coord
-                        dr, dri = self.get_direction(coords, coord)
+                        dr = self.get_direction(coords, coord)
                         elem_id = arr[y][x]
                         if elem_id != -1:
-                            if elem not in weights:
-                                # allowed[elem] = {}
+                            if elem not in allowed:
+                                allowed[elem] = {}
                                 weights[elem] = {}
-                            if dr not in weights[elem]:
-                                # allowed[elem][dr] = set()
+                            if dr not in allowed[elem]:
+                                allowed[elem][dr] = set()
                                 weights[elem][dr] = {}
-                            if elem_id not in weights[elem][dr]:
-                                weights[elem][dr][elem_id] = 1
+                            if arr[y][x] not in weights[elem][dr]:
+                                weights[elem][dr][arr[y][x]] = 1
 
                             if not non_place:
-                                self.used_elements.add(elem_id)
-                            allowed[dri][elem][elem_id] = True
-                            weights[elem][dr][elem_id] += 1
+                                self.used_elements.add(arr[y, x])
+                            allowed[elem][dr].add(arr[y][x])
+                            weights[elem][dr][arr[y][x]] += 1
 
         # This will get explained to me later
         if self.log_weights:
@@ -117,13 +110,13 @@ class Tilechecker:
         :return            -> Direction from from_coords to to_coords"""
         diff = [x[0] - x[1] for x in list(zip(from_coords, to_coords))]
         if diff[0] == 1:
-            return "North", 0
+            return "North"
         if diff[0] == -1:
-            return "South", 1
+            return "South"
         if diff[1] == 1:
-            return "West", 2
+            return "West"
         if diff[1] == -1:
-            return "East", 3
+            return "East"
         return False
 
     def coords_around(self, array, coords, steps=1):
@@ -167,55 +160,53 @@ class Tilechecker:
     def check_allowed(self, arr, poss, coords):
         """Check locations around a coordinate and return a set of element ids that are allowed in the coordinate
         :param arr      -> Numpy array of already decided elements
-        :param poss     -> Numpy array of possibilities
+        :param poss     -> A dict of remaining coordinates' possible elements
         :param coords   -> A tuple of coords to check surroundings from (y, x)
         :return         -> A set of allowed element ids"""
 
-        allowed = np.ones(len(self.elements), dtype="?")
+        allowed = self.element_ids
         for coord in self.coords_around(arr, coords):
-            _, dri = self.get_direction(coord, coords)
+            dr = self.get_direction(coord, coords)
 
-            allow = np.dot(poss[coord], self.allowed[dri])
+            allow = set()
+            # If coord is not solved, check its possible element options instead
+            if coord in poss:
+                for item in poss[coord]:
+                    if item in self.allowed:
+                        if dr in self.allowed[item]:
+                            allow = allow | self.allowed[item][dr]
 
-            allowed = np.multiply(allowed, allow)
+            # Coord is solved, so just fetch from its allowed list
+            else:
+                y, x = coord
+                if arr[y, x] in self.allowed:
+                    if dr in self.allowed[arr[y][x]]:
+                        allow = self.allowed[arr[y][x]][dr]
+
+            allowed = set.intersection(allowed, allow)
 
         return allowed
-
-    def check_allowed_gemm(self, poss):
-        """Updates the entire allowed matrix one iteration
-        :param arr      -> Numpy array of already decided elements
-        :param poss     -> Numpy array of possibilities
-        :return         -> A set of allowed element ids"""
-
-        r = np.dot(poss, self.allowed)
-
-        new_poss = np.ones(poss.shape, dtype="?")
-
-        new_poss[:-1] = np.multiply(new_poss[:-1], r[1:, :, 0])
-        new_poss[1:] = np.multiply(new_poss[1:], r[:-1, :, 1])
-        new_poss[:, :-1] = np.multiply(new_poss[:, :-1], r[:, 1:, 2])
-        new_poss[:, 1:] = np.multiply(new_poss[:, 1:], r[:, :-1, 3])
-        return new_poss
 
     def scan_elements(self, array, poss):
         """Brute force 'propagation' algorithm
         If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
         :param array  -> Numpy array of already set elements
-        :param poss     -> Numpy array of possibilities
+        :param poss   -> A dict of remaining coordinates' possible elements
         """
-        while True:
-            previous = np.copy(poss)
-            poss = self.check_allowed_gemm(poss)
-
-            for y in range(array.shape[0]):
-                for x in range(array.shape[1]):
-                    if array[y, x] > -1:
-                        poss[y, x] = 0
-                        poss[y, x][array[y, x]] = 1
-
-            if np.all(poss == previous):
-                break
-        return poss
+        solving = True
+        while solving:
+            solving = False
+            propagations = []
+            for coords in list(zip(*np.nonzero(array == -1))):
+                propagations.append(coords)
+            # propagations = [x for x in self.coords_around(level, coords)]
+            while propagations:
+                coords = propagations.pop(0)
+                allowed = self.check_allowed(array, poss, coords)
+                if poss[coords] == allowed:
+                    continue
+                poss[coords] = allowed
+                solving = True
 
     def propagate_elements(self, array, poss, coords):
         """Process the influence of setting an element to the rest of the level.
@@ -228,22 +219,21 @@ class Tilechecker:
         propagations = [x for x in self.coords_around(array, coords)]
         while propagations:
             coords = propagations.pop(0)
-            y, x = coords
-            if np.sum(poss[y, x]) == 1:
+            if coords not in poss:
                 continue
             allowed = self.check_allowed(array, poss, coords)
-            if np.all(poss[coords] == allowed):
+            if poss[coords] == allowed:
                 continue
             poss[coords] = allowed
             propagations.extend([x for x in self.coords_around(array, coords)])
 
-    # def debug_element(self, level, arr, poss, element_id):
-    #     """Check all locations where element_id is currently allowed and write it to the level."""
-    #     for k, v in poss.items():
-    #         y, x = k
-    #         if element_id in v:
-    #             arr[y][x] = element_id
-    #     self.write_elements(level, arr)
+    def debug_element(self, level, arr, poss, element_id):
+        """Check all locations where element_id is currently allowed and write it to the level."""
+        for k, v in poss.items():
+            y, x = k
+            if element_id in v:
+                arr[y][x] = element_id
+        self.write_elements(level, arr)
 
     def map_elements(self, ndarray, skip_empty=False, add_new_elements=False):
         """Convert tiles in level to elements and map the ids to array
@@ -278,7 +268,6 @@ class Tilechecker:
         return array
 
     def write_elements(self, level, array, ldtkc=False):
-        # return
         """Write elements mapped in array to level
         :param level -> Target Level object to write to
         :param array -> Numpy array that contains the mapped elements"""
@@ -334,11 +323,12 @@ class Tilechecker:
             level.write()
         print("Wrote level")
 
-    def get_weights(self, arr, from_coords, elements):
+    def get_weights(self, arr, selection):
         """Calculate the weights for a selection from poss
         :param arr       -> Array containing the mapped elements
         :param selection -> A value selected from poss eg.((y, x), {1, 2, 3})
         :returns         -> A list of weights to be used in np.random.choice(..., p=)"""
+        from_coords, elements = selection
 
         # If surrounding are still empty, return weights with all values valued the same
         if not [
@@ -346,26 +336,24 @@ class Tilechecker:
             for coord in self.coords_around(arr, from_coords)
             if arr[coord[0], coord[1]] != -1
         ]:
-            return elements / np.sum(elements)
+            return [1 / len(elements) for x in range(len(elements))]
 
-        weights = elements.astype(float)
+        weights = {x: 1.0 for x in elements}
         for coords in self.coords_around(arr, from_coords):
             y, x = coords
             from_elem = arr[y][x]
-            dr, _ = self.get_direction(coords, from_coords)
-            for elem in range(len(weights)):
-                if (
-                    from_elem in self.weights
-                    and dr in self.weights[from_elem]
-                    and elem in self.weights[from_elem][dr]
-                ):
-                    weights[elem] *= self.weights[from_elem][dr][elem]
+            dr = self.get_direction(coords, from_coords)
+            for elem in weights.keys():
+                if from_elem in self.weights:
+                    if dr in self.weights[from_elem]:
+                        if elem in self.weights[from_elem][dr]:
+                            weights[elem] *= self.weights[from_elem][dr][elem]
         # Weights doesnt always find the elements around it. In that case, dont handle this element right now
         # Not sure if this is correct behaviour
-        total = np.sum(weights)
+        total = sum([x for x in weights.values()])
         if total == 0:
             return False
-        weights = weights / total
+        weights = [x / total for x in weights.values()]
         return weights
 
 
@@ -435,19 +423,17 @@ hei, wid = ele_arr.shape
 
 # Initialize poss with all coords having all options
 # element_ids should be used_elements
-poss = np.zeros((hei, wid, len(checker.element_ids)), dtype="?")
-for elem_id in checker.used_elements:
-    poss[:, :, elem_id] = 1
+poss = {
+    (i // wid, i % wid): checker.element_ids for i, _ in enumerate(np.nditer(ele_arr))
+}
 
 # Update poss with information about pre-set elements
-arr = np.full((ele_arr.shape), -1, dtype=int)
+arr = np.full((ele_arr.shape), -1, int)
 for coords in list(zip(*np.nonzero(ele_arr != -1))):
     y, x = coords
-    elem_id = ele_arr[y, x]
-    arr[y, x] = elem_id
-    poss[y, x] = 0
-    poss[y, x, elem_id] = 1
-# checker.scan_elements(arr, poss)
+    arr[y][x] = ele_arr[y][x]
+    poss.pop(coords)
+checker.scan_elements(arr, poss)
 
 print("Pre-set elements", time.perf_counter() - timer)
 
@@ -456,10 +442,7 @@ path = pathfinder.create_path(arr, (27, 12), [(15, 64)])
 path = pathfinder.largen_path(arr, path)
 
 tmp_arr = copy.deepcopy(arr)
-# road_poss = {coords: roads.element_ids for coords in poss.keys()}
-road_poss = np.zeros((hei, wid, len(roads.element_ids)), dtype="?")
-for elem_id in roads.used_elements:
-    road_poss[:, :, elem_id] = 1
+road_poss = {coords: roads.element_ids for coords in poss.keys()}
 # Fill all tiles outside the path with grass
 # Fetch the top left tile in the road template
 grass_element = roads.map_elements(create_ndarray(road_template))[0, 0]
@@ -467,92 +450,84 @@ for i, element in enumerate(np.nditer(tmp_arr)):
     coord = y, x = i // wid, i % wid
     if coord not in path:
         tmp_arr[y, x] = grass_element
-        road_poss[y, x] = 0
-        road_poss[y, x, grass_element] = 1
-road_poss = roads.scan_elements(tmp_arr, road_poss)
+        if coord in road_poss:
+            road_poss.pop(coord)
+roads.scan_elements(tmp_arr, road_poss)
 
-road_mask = np.copy(tmp_arr)
 # tmp_arr is full of grass with the road carved out
+road_poss = {k: set.intersection(v, roads.used_elements) for k, v in road_poss.items()}
 while -1 in tmp_arr:
-    road_poss_sel = np.sum(road_poss, axis=2)
-    print(f"{np.sum(road_poss_sel>1)} tiles left to fill")
-    road_poss_sel[road_poss_sel < 2] = 999
-    m = np.min(road_poss_sel)
-    if m == 999:
-        print("Road out of options!")
+    try:
+        min_opt = min(
+            [len(v) for k, v in road_poss.items() if k in path and len(v) > 0]
+        )
+    except ValueError:
+        print("Out of optinos")
         break
-    opt = np.array(np.where(road_poss_sel == m)).T
 
-    y, x = opt[np.random.randint(len(opt))]
+    select_poss = {
+        k: v for k, v in road_poss.items() if k in path and len(v) == min_opt
+    }
+    selected = random.choice(list(select_poss.items()))
 
     if WEIGHTS:
-        if not (weights := checker.get_weights(arr, (y, x), road_poss[y, x])).any():
+        if not (weights := roads.get_weights(arr, selected)):
             continue
-        else:
-            weights = road_poss[y, x] / np.sum(road_poss[y, x])
+        element_id = np.random.choice(list(selected[1]), p=weights)
+    else:
+        element_id = np.random.choice(list(selected[1]))
 
-    element_id = np.random.choice(list(range(len(checker.elements))), p=weights)
+    coord = (y, x) = selected[0]
 
-    coord = (y, x)
+    road_poss.pop(coord)
+    poss.pop(coord)
 
-    road_poss[y, x] = 0
-    road_poss[y, x, element_id] = 1
-    poss[y, x] = 0
-    poss[y, x, element_id] = 1
-
-    tmp_arr[y, x] = element_id
+    tmp_arr[y][x] = element_id
     roads.propagate_elements(tmp_arr, road_poss, coord)
-    # road_poss = roads.scan_elements(tmp_arr, road_poss)
-    arr[y, x] = element_id
 
-for y in range(arr.shape[0]):
-    for x in range(arr.shape[1]):
-        if road_mask[y, x] == -1:
-            element_id = int(np.where(road_poss[y, x] == 1)[0])
-            poss[y, x] = 0
-            poss[y, x, element_id] = 1
-            arr[y, x] = element_id
+    arr[y][x] = element_id
+    checker.propagate_elements(arr, poss, coord)
 
-poss = checker.scan_elements(arr, poss)
-
+# Filter out non_place elements from poss
+poss = {k: set.intersection(v, checker.used_elements) for k, v in poss.items()}
 while -1 in arr:
-    poss_sel = np.sum(poss, axis=2)
-    print(f"{np.sum(poss_sel>1)} tiles left to fill")
-    poss_sel[poss_sel < 2] = 999
-    m = np.min(poss_sel)
-    if m == 999:
-        print("Level out of options!")
-        break
-    opt = np.array(np.where(poss_sel == m)).T
+    print(f"{len(arr[arr==-1])} tiles left to fill")
 
-    y, x = opt[np.random.randint(len(opt))]
+    # Calculate whats the least amount of options any level has and remove all tiles that have more than it
+    try:
+        min_opt = min(
+            [len(x) for x in poss.values() if len(x) > 0]
+        )  # Ignore tiles with 0 options
+    except ValueError:
+        # Were screwed, break out and write
+        print("Out of states and options, breaking out")
+        break
+
+    select_poss = {k: v for k, v in poss.items() if len(v) == min_opt}
+
+    selected = random.choice(list(select_poss.items()))
 
     if WEIGHTS:
-        if not (weights := checker.get_weights(arr, (y, x), poss[y, x])).any():
+        if not (weights := checker.get_weights(arr, selected)):
             continue
-        else:
-            weights = poss[y, x] / np.sum(poss[y, x])
+        element_id = np.random.choice(list(selected[1]), p=weights)
+    else:
+        element_id = np.random.choice(list(selected[1]))
 
-    element_id = np.random.choice(
-        list(range(len(checker.elements))), p=poss[y, x] / np.sum(poss[y, x])
-    )
+    y, x = selected[0]
 
-    poss[y, x] = 0
-    poss[y, x, element_id] = 1
-    arr[y, x] = element_id
+    arr[y][x] = element_id
+    poss.pop(selected[0])  # coord is now set. Remove it from possible options
 
     checker.propagate_elements(arr, poss, (y, x))
-    # poss = checker.scan_elements(arr, poss)
 
-
-for y in range(arr.shape[0]):
-    for x in range(arr.shape[1]):
-        if arr[y, x] == -1:
-            element_id = int(np.where(poss[y, x] == 1)[0])
-            poss[y, x] = 0
-            poss[y, x, element_id] = 1
-            arr[y, x] = element_id
 
 print("Running time:", int(time.perf_counter() - timer), "s")
-# # Write elements mapped into arr to the target
+
+# Sort layer tiles by location for ease of reading
+# for layer in target.layers:
+#     if "gridTiles" in layer and layer["gridTiles"]:
+#         layer["gridTiles"].sort(key=lambda x: x["d"][0])
+
+# Write elements mapped into arr to the target
 checker.write_elements(target, arr, ldtkc=ldtkc)

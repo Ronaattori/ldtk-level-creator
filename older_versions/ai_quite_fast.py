@@ -47,7 +47,7 @@ class Tilechecker:
         weights = {}
 
         n_ele = len(self.elements)
-        allowed = np.zeros((4, n_ele, n_ele), dtype="?")
+        allowed = np.zeros((4, n_ele, n_ele), dtype=int)
 
         # for template_ndarray in self.templates:
         for non_place, templates in (
@@ -55,6 +55,9 @@ class Tilechecker:
             (True, self.non_place_templates),
         ):
             for arr in templates:
+                # arr = self.map_elements(
+                #     template_ndarray, skip_empty=True, add_new_elements=True
+                # )
                 hei, wid = arr.shape
                 # Go through each tile and append all surrounding tiles to a dict
                 # Also take a note of how many times an element was next to another, and on what side (for weights)
@@ -77,7 +80,7 @@ class Tilechecker:
 
                             if not non_place:
                                 self.used_elements.add(elem_id)
-                            allowed[dri][elem][elem_id] = True
+                            allowed[dri][elem][elem_id] = 1
                             weights[elem][dr][elem_id] += 1
 
         # This will get explained to me later
@@ -167,41 +170,39 @@ class Tilechecker:
     def check_allowed(self, arr, poss, coords):
         """Check locations around a coordinate and return a set of element ids that are allowed in the coordinate
         :param arr      -> Numpy array of already decided elements
-        :param poss     -> Numpy array of possibilities
+        :param poss     -> A dict of remaining coordinates' possible elements
         :param coords   -> A tuple of coords to check surroundings from (y, x)
         :return         -> A set of allowed element ids"""
 
-        allowed = np.ones(len(self.elements), dtype="?")
+        allowed = np.ones(len(self.elements))
         for coord in self.coords_around(arr, coords):
             _, dri = self.get_direction(coord, coords)
 
-            allow = np.dot(poss[coord], self.allowed[dri])
+            allow = np.dot(poss[coord], self.allowed[dri]).astype(float)
 
             allowed = np.multiply(allowed, allow)
 
-        return allowed
+        return (allowed > 0) * 1
 
     def check_allowed_gemm(self, poss):
-        """Updates the entire allowed matrix one iteration
-        :param arr      -> Numpy array of already decided elements
-        :param poss     -> Numpy array of possibilities
-        :return         -> A set of allowed element ids"""
+        poss = (poss > 0) * 1
+        allowed = (self.allowed > 0) * 1
 
-        r = np.dot(poss, self.allowed)
+        r = (np.dot(poss, allowed)) * 1
 
-        new_poss = np.ones(poss.shape, dtype="?")
+        new_poss = np.ones(poss.shape)
 
         new_poss[:-1] = np.multiply(new_poss[:-1], r[1:, :, 0])
         new_poss[1:] = np.multiply(new_poss[1:], r[:-1, :, 1])
         new_poss[:, :-1] = np.multiply(new_poss[:, :-1], r[:, 1:, 2])
         new_poss[:, 1:] = np.multiply(new_poss[:, 1:], r[:, :-1, 3])
-        return new_poss
+        return (new_poss > 0) * 1
 
     def scan_elements(self, array, poss):
         """Brute force 'propagation' algorithm
         If a coordinates poss was changed, add that coordinates surroundings to the to-be-checked list. Repeat until list is exhausted
         :param array  -> Numpy array of already set elements
-        :param poss     -> Numpy array of possibilities
+        :param poss   -> A dict of remaining coordinates' possible elements
         """
         while True:
             previous = np.copy(poss)
@@ -435,12 +436,12 @@ hei, wid = ele_arr.shape
 
 # Initialize poss with all coords having all options
 # element_ids should be used_elements
-poss = np.zeros((hei, wid, len(checker.element_ids)), dtype="?")
+poss = np.zeros((hei, wid, len(checker.element_ids)), int)
 for elem_id in checker.used_elements:
     poss[:, :, elem_id] = 1
 
 # Update poss with information about pre-set elements
-arr = np.full((ele_arr.shape), -1, dtype=int)
+arr = np.full((ele_arr.shape), -1, int)
 for coords in list(zip(*np.nonzero(ele_arr != -1))):
     y, x = coords
     elem_id = ele_arr[y, x]
@@ -457,7 +458,7 @@ path = pathfinder.largen_path(arr, path)
 
 tmp_arr = copy.deepcopy(arr)
 # road_poss = {coords: roads.element_ids for coords in poss.keys()}
-road_poss = np.zeros((hei, wid, len(roads.element_ids)), dtype="?")
+road_poss = np.zeros((hei, wid, len(roads.element_ids)), int)
 for elem_id in roads.used_elements:
     road_poss[:, :, elem_id] = 1
 # Fill all tiles outside the path with grass
@@ -485,11 +486,13 @@ while -1 in tmp_arr:
 
     y, x = opt[np.random.randint(len(opt))]
 
-    if WEIGHTS:
-        if not (weights := checker.get_weights(arr, (y, x), road_poss[y, x])).any():
-            continue
-        else:
-            weights = road_poss[y, x] / np.sum(road_poss[y, x])
+    # if WEIGHTS:
+    #     if not (weights := checker.get_weights(arr, (y, x), road_poss[y, x])).any():
+    #         continue
+    #     else:
+    #         weights = road_poss[y, x] / np.sum(road_poss[y, x])
+
+    weights = road_poss[y, x] / np.sum(road_poss[y, x])
 
     element_id = np.random.choice(list(range(len(checker.elements))), p=weights)
 

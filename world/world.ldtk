@@ -10,7 +10,7 @@
 	},
 	"jsonVersion": "1.1.3",
 	"appBuildId": 458364,
-	"nextUid": 507,
+	"nextUid": 509,
 	"identifierStyle": "Capitalize",
 	"worldLayout": "Free",
 	"worldGridWidth": 256,
@@ -5121,7 +5121,10 @@
 			"enumTags": [],
 			"customData": [],
 			"savedSelections": [],
-			"cachedPixelData": null
+			"cachedPixelData": {
+				"opaqueTiles": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"averageColors": "00003785478568853b744a756a653899498a488928842795477929852aa349883a873a765a8739894aa63a765a76398849793aa44a853ba64a95377a477a487a38793879687a3b884b7839756aa63b894c99377a377a278649794a773a754b84386948792876387639964aa63a954779499659864a976a94288a388a588a3a945a944995378858786788299449955895387858792777577758865ba66b963b886a87289948994996397658764aab5aab38795879387867795a8a6777587767774a945a964a7649872b773cbb4b8849953a993aa9398739863b683a994989388738874c8836594986388b478b3baa3a983a863888397837963a8639853a75498749863a9658894889286a3986378a3aa53a743a8a3aa849972a86398748884aa7477b4a944b94388a477a498649893a7738a5499559a63a854a85599638793988587838754a98397649873a86397637854987487a3998488a2a942b772c793a963aaa2876388749964a895a954984488a488a388538a5497638a54bab4997399449953876387a478c487937753775397637662888477b4986368849783aa8487958884a784979499a59663a84477938773b8549863b734a763b974a874b88299a3b754a99588b498938874887388a488c67883a894a964aa7398959884b963aa53b784a895b9b59985a98598a38a5377b47956bbb6b9839a63884468847742b944ba45b98388b388958873888477739764ba93b984bba5887487959763785478459963a963a974988287938783aaa3aa82997389759a828884a99399548853a974ba96a973997398639953b774989588939764985377a27883b86496638795aa729993999599939993a8738944aa73b95399839883989488928a4397a3a87376a487a687b3aa46a764985298838783aa73b793785488547843674299b4aac4baa387729853a74277849883b874a853985498839765886488748763aa75a782999389536663665377748876885298a4999378829764888398a399a59ab487b49883a7859962c7838795bbb697a477b677b577a4a76478957775b99588a587a597667953aa6596638a459a568962a864b865a87288a388948783887487748773975498539854974489a5788577729b54a9a489a589a48865887378547865a963b965a964abc3a844a84397737693b874a855978288949893a945aa458665877498848883a96499a699b277b488c2995297a2c883877477b377b487a587a3889277936674aa76886477a6979388a488a4895388a477b276b3aaa4bba497658894b78587657695a945b855cbb59875996567a777a6a9839894896597758764aaa3bac49984979477b699a698959876aa869855a87388b388a787738966aa83b9639a539a5589529744a8569752aaa488a6a983a984997398648776998387b487938a549a63b754b76389a499a2c895a79299837764866388859992779476a586827794879399958875ca73a965a966a9729883889577b5977477a29a538a439942757487758663bba5bb728a5499538873886498659763b854b86589639766a862ba64b954887276568863779577939885988389668863766586549995aaa299a49994777289537955795389a5bbb2bbc3bbd5bbd3b9949864aa9277959872b994a8839ab5bbd3c883bb56aa5288757863898578778871bbb39786879289a3a972bbb3666477837953775587439ac4bbb499c298849773a963aa44aaa5869389968993977498758764aa75a8739884988597537773778577867683ba95a874999597648a57aa869aa6bbb65557b985aaa598a3897387900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+			}
 		},
 		{
 			"__cWid": 40,
@@ -5236,13 +5239,13 @@
 			}
 		},
 		{
-			"__cWid": 8,
+			"__cWid": 24,
 			"__cHei": 75,
 			"identifier": "Snow",
 			"uid": 492,
 			"relPath": "../resources/simple/graphics/tilesets/snow.png",
 			"embedAtlas": null,
-			"pxWid": 128,
+			"pxWid": 384,
 			"pxHei": 1200,
 			"tileGridSize": 16,
 			"spacing": 0,
@@ -5264,8 +5267,8 @@
 			"customData": [],
 			"savedSelections": [],
 			"cachedPixelData": {
-				"opaqueTiles": "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111110000000011110000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011110000000000000000000000000000000000000000000000000000000000000000000000000001111000001100000000000000000000000000000",
-				"averageColors": "fddefdeffdeffcdefddffddffddffddffcdefdeffdeffcdefddffcdefcdefcdef9bcfabcfabcfabcf9bcf9bcf8bcf8bcfabcf79cfabcfbbcf9abf9abf9bcf8abfbdefbdefcdefcdefcdefcdefbdefbdef6abf6abf8bcf8bcf8bcf8bbf6abf6abf8abf8abf9bbf9abf9bcf8abf9abf8abfbddfbddfcdefbdefcdefcdefbddfbddf6aaf6aaf8bbf7bbf7bbf8bbf6aaf6baf9aaf8aaf9bbf9bbf9bbf8abf9abf8abfbcdfbcefcdefccefccefcdefbcdfbcdf67af67af8abf89bf89bf8abf69af69bf89bf89bf9abf9abf9abf89bf9abf89bfddefcdefcdefcdefddefccefccefcdef8bbf8bbf8bbf8bbf99bf89bf89bf89bf9abf8aaf9bbf8aaf99bf89bf9abf89bfccdfbcdfccdfbccfbccf9ccfbcdfddffccdfccdfccdfbccfbccf588f799fddffccdfccdfccdfbccfbccfcdefcdefddffbbcfccdfddffccdfbbcfbcefcdefddffccefbbdfddffaacfbbcf57af89bfddffabcf99bfabcf99afaabf9abfaacfddffddffcdefcdefcdefcdefddffbcdfddffcdefacdfbcefacdf9bdfbdefbcdfbcdfcdefbdefbdefcdefbcefcdefddffddffbcefbcefbcefbcefddffccdfdeffddff9bcf9acf9bcf9bcfddffddffcdefcdefcdefcdefcdefcdefcdefcdef9abf9abfabcfabcf9bcfabcfbcdfbcdfabcfabcfabcfabcfabcfddffbcdfbcdfcdefcdef9acf9acf9acfddffbcefbcefbcdfbcdfccefccefccefddffddffdcefcdefcdefdeffcdffdeffcdffddffddffddffcdefceffdeffdeffceefcdefbccfcdefccdfbcdfacdfbdefbcdfcdefbcdfcdefddffbcdf578f9bcfabcfddffddefddefacdfddffddffddffddffcdefcdefcdefabcdcdefdeffdefdcde0aad000000000000fcdefdeffdeffcde5dde5acd5acd5cdee9acfabcfabce9bcd8bcd8abd7abd7abc9abd69cfaabcabc958894789689937855bc56bc5bdd59bc59cc5acd56bb56bcd49ad49ad7bbd7abd7abd7abd5aad5aa9378937895899488959994889488948855ba55ba5bcd59bb58bb5acc55ba56bad4a8d4a8d7aad7bad6aad7bad4a9d5a993769376958895889598948794879487557b567b5bcd59ab59ac5abc558a568bd459d459d79ad79ad69ad79bd47ad58a934793479568957895789468946894685cdd59cc59cc5bcc5ccd5aac5aac5bbdd7aad7aad7aad7aad88ad88ad78ad78a94879477958893769557945796689347abcccbccabccebccebcca5aaa9bb0000cbccfccccbccebccebccd387d6980000abcccbccabbcebccebcc24762476000065573558000034465557458b4bbd0000487a67790fff75576557e579e79a00007769a6686557a55775577357746700001cde6bcd6bde6bcd6bcd1bcd8abb00009bcdfacdfbcefacdf9bd9bcd8abb8abc5bddcbcecbdeccdecbcd5bdd08ab0000469a469a469a469a00006aab2fff0000a79ab79aa79aa79b0000000039ac49ab3bcd39bc3acd39bc19bc19bcc79bc79ba8abb8aba79ba8ab679b679bb8abb8ab979b979b979b0000679a679a14771477c89bc89bc89b0000579b579b569a569a59bc59bc59bc000000005c8c235524677cee8cee8cef8cee09bd000000002356fceffdeffdeffcee18abbabb169b3566fbcdfacdfbdefbcd15abaabc16aa0000dacdd367e9bcdabc1dde2bdd3cdd66ab00000000000000007bcd6bdd6cdd748800000000000000000aad000000000000"
+				"opaqueTiles": "111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111111111100000000000111111111111100000000000111111111111100000000000111111111111100000000000111111111111100000000000111111111111100000000000111111110101100000000000111111111111100000000000111111111111100000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000110000000000111111110000110000000000111111110000110000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110000000000000000111111110010000100100000111111110010000000000000111111110000000000000000000000000000000000000000111100000000000000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000111100000000000000000000011000000111100000000000000000000011000000000000000000000000000000000000000000000000000000000000",
+				"averageColors": "fddefdeffdeffcdefddffddffddffddf0000000000000000000000000000000000000000000000000000000000000000fcdefdeffdeffcdefddffcdefcdefcde0000000000000000000000000000000000000000000000000000000000000000f9bcfabcfabcfabcf9bcf9bcf8bcf8bc0000000000000000000000000000000000000000000000000000000000000000fabcf79cfabcfbbcf9abf9abf9bcf8ab0000000000000000000000000000000000000000000000000000000000000000fbdefbdefcdefcdefcdefcdefbdefbde0000000000000000000000000000000000000000000000000000000000000000f6abf6abf8bcf8bcf8bcf8bbf6abf6ab0000000000000000000000000000000000000000000000000000000000000000f8abf8abf9bbf9abf9bcf8abf9abf8ab0000000000000000000000000000000000000000000000000000000000000000fbddfbddfcdefbdefcdefcdefbddfbdd0000000000000000000000000000000000000000000000000000000000000000f6aaf6aaf8bbf7bbf7bbf8bbf6aaf6ba0000000000000000000000000000000000000000000000000000000000000000f9aaf8aaf9bbf9bbf9bbf8abf9abf8ab0000000000000000000000000000000000000000000000000000000000000000fbcdfbcefcdefccefccefcdefbcdfbcd0000000000000000000000000000000000000000000000000000000000000000f67af67af8abf89bf89bf8abf69af69b0000000000000000000000000000000000000000000000000000000000000000f89bf89bf9abf9abf9abf89bf9abf89b0000000000000000000000000000000000000000000000000000000000000000fddefcdefcdefcdefddefccefccefcdefddffddffddffddffddf00000000000000000000000000000000000000000000f8bbf8bbf8bbf8bbf99bf89bf89bf89bfddffddffddffddffddf00000000000000000000000000000000000000000000f9abf8aaf9bbf8aaf99bf89bf9abf89bfddffddffddffddffbbc00000000000000000000000000000000000000000000fccdfbcdfccdfbccfbccf9ccfbcdfddff689f78af789faacfabc00000000000000000000000000000000000000000000fccdfccdfccdfbccfbccf588f799fddff89bf89bf89bfaacfbbd00000000000000000000000000000000000000000000fccdfccdfccdfbccfbccfcdefcdefddffddffddffbbdfabcfbbd00000000000000000000000000000000000000000000fbbcfccdfddffccdfbbcfbcefcdefddff679f78af689f79af78a00000000000000000000000000000000000000000000fccefbbdfddffaacfbbcf57af89bfddff78af8abf79af79af78a00000000000000000000000000000000000000000000fabcf99bfabcf99afaabf9abfaacfddff8abfccdf8abf79af78a00000000000000000000000000000000000000000000fddffcdefcdefcdefcdefddffbcdfccd0000e78af89bd78a000000000000000000000000000000000000000000000000fcdefacdfbcefacdf9bdfbdefbcdfbcd0000000000000000000000000000000000000000000000000000000000000000fcdefbdefbdefcdefbcefcdefddffddf0000000000005669777a777a6669000000000000000000000000000000000000fbcefbcefbcefbcefddffccdfdeffddf000000000000977af88bf88b977a000000000000000000000000000000000000f9bcf9acf9bcf9bcfddffddffcdefcde000000000557987bf88cf88c988b000000000000000000000000000000000000fcdefcdefcdefcdefcdefcdef9abf9ab000000000000988bf99cf99c988b000000000000000000000000000000000000fabcfabcf9bcfabcfbcdfbcdfabcfabc000000000000478a688a688a477a00001aab1aab1aab3aab3aab1aab3aab3aabfabcfabcfabcfddffbcdfbcdfcdefcde499a499a599aa99aa99a599aa99aa99a5889588a599aa99aa99a599aa99aa99af9acf9acf9acfddffbcefbcefbcdfbcd5889488a599aa99aa99a599aa99aa99a599a499a599aa99aa99a599aa99aa99afccefccefccefddffddffdcefcdefcde4889488a588a989a989a489aa889a889599a599a599a899a989a699aa889a889fdeffcdffdeffcdffddffddffddffcde899a899a899a899aa99aa99aa99aa99a899a899a688a688aa99aa99aa99aa99afceffdeffdeffceefcdefbccfcdefccda99aa99a58895889a99aa99aa99aa99aa99aa99a9dcc58888889a889a889dcbbfbcdfacdfbdefbcdfcdefbcdfcdefddfa99aa99affee58765876a876a876ffeea99aa99affee68766876b876b876deccfbcdf578f9bcfabcfddffddefddefacda889a889ffee68766876a866a866b876778977899fdd48764876776577657866fddffddffddffddffcdefcdefcdefabc0000000000000000000000000000000000000000000000000000000000000000dcdefdeffdefdcde0aad0000000000000000000000000000000000000000000000000000000000000000000000000000fcdefdeffdeffcde5dde5acd5acd5cde0000000000000000000000000000000000000000000000000000000000000000e9acfabcfabce9bcd8bcd8abd7abd7ab0000000000000000000000000000000000000000000000000000000000000000c9abd69cfaabcabc9588947896899378000000000000000000000000000000000000000000000000000000000000000055bc56bc5bdd59bc59cc5acd56bb56bc0000000000000000000000000000000000000000000000000000000000000000d49ad49ad7bbd7abd7abd7abd5aad5aa000000000000000000000000000000000000000000000000000000000000000093789378958994889599948894889488ebcdfbcdfbcdfded00000000000000000000000000000000000000000000000055ba55ba5bcd59bb58bb5acc55ba56bafbcdf9bcf9bcfded000000000000000000000000000000000000000000000000d4a8d4a8d7aad7bad6aad7bad4a9d5a9e9abe9bcfbcde9bc000000000000000000000000000000000000000000000000937693769588958895989487948794870000000000000000000000000000000000000000000000000000000000000000557b567b5bcd59ab59ac5abc558a568b94a9956a95ab5bbe5bde0cee0000000000000000000000000000000000000000d459d459d79ad79ad69ad79bd47ad58aa9bb99acaacc000000000000000000000000000000000000000000000000000093479347956895789578946894689468a558e669a569e67a0000000000000000000000000000000000000000000000005cdd59cc59cc5bcc5ccd5aac5aac5bbd0a9cb4570a9db458000000000000000000000000000000000000000000000000d7aad7aad7aad7aad88ad88ad78ad78a0000000000000000000000000000000000000000000000000000000000000000948794779588937695579457966893470000000000000000000000000000000000000000000000000000000000000000abcccbccabccebccebcca5aaa9bb00000000a99b00000000000000000000000000000000000000000000000000000000cbccfccccbccebccebccd387d6980000caabb99b00000000000000000000000000000000000000000000000000000000abcccbccabbcebccebcc247624760000caab9aab0000000000000000000000000000000000000000000000000000000065573558000034465557458b4bbdaaabb99ba99b00000000000000000000000000000000000000000000000000000000487a67790fff75576557e579e79a000000000000000000000000000000000000000000000000000000000000000000007769a6686557a557755773577467000000000000000000000000000000000000000000000000000000000000000000001cde6bcd6bde6bcd6bcd1bcd8abb000000000000000000000000000000000000000000000000000000000000000000009bcdfacdfbcefacdf9bd9bcd8abb8abc00000000000000000000000000000000000000000000000000000000000000005bddcbcecbdeccdecbcd5bdd08ab00000000000000000000000000000000000000000000000000000000000000000000469a469a469a469a00006aab2fff00000000000000000000000000000000000000000000000000000000000000000000a79ab79aa79aa79b0000000039ac49ab00000000000000000000000000000000000000000000000000000000000000003bcd39bc3acd39bc19bc19bcc79bc79b0000000000000000000000000000000000000000000000000000000000000000a8abb8aba79ba8ab679b679bb8abb8ab0000000000000000000000000000000000000000000000000000000000000000979b979b979b0000679a679a1477147700000335877a0336000000000000000000000000000000000000000000000000c89bc89bc89b0000579b579b569a569a00000447677a034600000000000000000000000000000000000000000000000059bc59bc59bc000000005c8c2355246700000000433643360000000000000000000000000000000000000000000000007cee8cee8cef8cee09bd0000000023560000000075577557000000000000000000000000000000000000000000000000fceffdeffdeffcee18abbabb169b356600009cee9cef9cef8cee00000000000000000000000000000000000000000000fbcdfacdfbdefbcd15abaabc16aa00000000fceefdeffdeffcee00000000000000000000000000000000000000000000dacdd367e9bcdabc1dde2bdd3cdd66ab0000fbcdfbcdfacdfbcd0000000000000000000000000000000000000000000000000000000000007bcd6bdd6cdd74880000c9ace8abc367cacd0000000000000000000000000000000000000000000000000000000000000aad0000000000000000000000000000000000000000000000000000000000000000000000000000"
 			}
 		}
 	], "enums": [
@@ -6208,53 +6211,6 @@
 	] },
 	"levels": [
 		{
-			"identifier": "L4_I1_Template",
-			"iid": "76a71550-02f0-11ed-8121-97d242e6de8c",
-			"uid": 503,
-			"worldX": -176,
-			"worldY": -832,
-			"worldDepth": 0,
-			"pxWid": 1232,
-			"pxHei": 832,
-			"__bgColor": "#7F8093",
-			"bgColor": null,
-			"useAutoIdentifier": false,
-			"bgRelPath": null,
-			"bgPos": null,
-			"bgPivotX": 0.5,
-			"bgPivotY": 0.5,
-			"__smartColor": "#B9B9C4",
-			"__bgPos": null,
-			"externalRelPath": "world/0000-L4_I1_Template.ldtkl",
-			"fieldInstances": [
-				{ "__identifier": "hospital", "__value": "L1_I1", "__type": "String", "__tile": null, "defUid": 454, "realEditorValues": [{
-					"id": "V_String",
-					"params": ["L1_I1"]
-				}] },
-				{ "__identifier": "allow_save", "__value": true, "__type": "Bool", "__tile": null, "defUid": 452, "realEditorValues": [] },
-				{ "__identifier": "allow_cycle", "__value": true, "__type": "Bool", "__tile": null, "defUid": 467, "realEditorValues": [] },
-				{ "__identifier": "environment", "__value": "lunaforest", "__type": "String", "__tile": null, "defUid": 453, "realEditorValues": [{
-					"id": "V_String",
-					"params": ["lunaforest"]
-				}] },
-				{ "__identifier": "encounter_rate", "__value": 0.05, "__type": "Float", "__tile": null, "defUid": 440, "realEditorValues": [] },
-				{ "__identifier": "encounters", "__value": "100x RATTATA\n10x STARYU", "__type": "String", "__tile": null, "defUid": 439, "realEditorValues": [{
-					"id": "V_String",
-					"params": ["100x RATTATA\n10x STARYU"]
-				}] },
-				{ "__identifier": "encounter_level_min", "__value": 5, "__type": "Int", "__tile": null, "defUid": 447, "realEditorValues": [] },
-				{ "__identifier": "encounter_level_max", "__value": 10, "__type": "Int", "__tile": null, "defUid": 448, "realEditorValues": [] },
-				{ "__identifier": "filter_red", "__value": 1, "__type": "Float", "__tile": null, "defUid": 402, "realEditorValues": [null] },
-				{ "__identifier": "filter_green", "__value": 1, "__type": "Float", "__tile": null, "defUid": 403, "realEditorValues": [] },
-				{ "__identifier": "filter_blue", "__value": 1, "__type": "Float", "__tile": null, "defUid": 404, "realEditorValues": [] },
-				{ "__identifier": "on_enter", "__value": null, "__type": "String", "__tile": null, "defUid": 361, "realEditorValues": [] },
-				{ "__identifier": "step", "__value": null, "__type": "String", "__tile": null, "defUid": 362, "realEditorValues": [] },
-				{ "__identifier": "on_exit", "__value": null, "__type": "String", "__tile": null, "defUid": 363, "realEditorValues": [] }
-			],
-			"layerInstances": null,
-			"__neighbours": [ { "levelIid": "a4a557a0-02f0-11ed-a579-d73f91becf06", "levelUid": 506, "dir": "s" }, { "levelIid": "55587c00-02f0-11ed-8121-31ba1f395d42", "levelUid": 504, "dir": "w" } ]
-		},
-		{
 			"identifier": "L4_Snowtown",
 			"iid": "a4a557a0-02f0-11ed-a579-d73f91becf06",
 			"uid": 506,
@@ -6272,7 +6228,7 @@
 			"bgPivotY": 0.5,
 			"__smartColor": "#B9B9C4",
 			"__bgPos": null,
-			"externalRelPath": "world/0001-L4_Snowtown.ldtkl",
+			"externalRelPath": "world/0000-L4_Snowtown.ldtkl",
 			"fieldInstances": [
 				{ "__identifier": "hospital", "__value": "L1_I1", "__type": "String", "__tile": null, "defUid": 454, "realEditorValues": [{
 					"id": "V_String",
@@ -6299,14 +6255,65 @@
 				{ "__identifier": "on_exit", "__value": null, "__type": "String", "__tile": null, "defUid": 363, "realEditorValues": [] }
 			],
 			"layerInstances": null,
-			"__neighbours": [ { "levelIid": "76a71550-02f0-11ed-8121-97d242e6de8c", "levelUid": 503, "dir": "n" }, { "levelIid": "107189d0-02f0-11ed-9fe8-9d246b5c6aa4", "levelUid": 500, "dir": "w" } ]
+			"__neighbours": [ { "levelIid": "eda2b510-02f0-11ed-ba73-3d1568ce19a2", "levelUid": 507, "dir": "n" }, { "levelIid": "107189d0-02f0-11ed-9fe8-9d246b5c6aa4", "levelUid": 500, "dir": "w" } ]
+		},
+		{
+			"identifier": "L4_I1_Template",
+			"iid": "eda2b510-02f0-11ed-ba73-3d1568ce19a2",
+			"uid": 507,
+			"worldX": -176,
+			"worldY": -832,
+			"worldDepth": 0,
+			"pxWid": 1232,
+			"pxHei": 832,
+			"__bgColor": "#7F8093",
+			"bgColor": null,
+			"useAutoIdentifier": false,
+			"bgRelPath": null,
+			"bgPos": null,
+			"bgPivotX": 0.5,
+			"bgPivotY": 0.5,
+			"__smartColor": "#B9B9C4",
+			"__bgPos": null,
+			"externalRelPath": "world/0001-L4_I1_Template.ldtkl",
+			"fieldInstances": [
+				{ "__identifier": "hospital", "__value": "L1_I1", "__type": "String", "__tile": null, "defUid": 454, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["L1_I1"]
+				}] },
+				{ "__identifier": "allow_save", "__value": true, "__type": "Bool", "__tile": null, "defUid": 452, "realEditorValues": [] },
+				{ "__identifier": "allow_cycle", "__value": true, "__type": "Bool", "__tile": null, "defUid": 467, "realEditorValues": [] },
+				{ "__identifier": "environment", "__value": "lunaforest", "__type": "String", "__tile": null, "defUid": 453, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["lunaforest"]
+				}] },
+				{ "__identifier": "encounter_rate", "__value": 0.05, "__type": "Float", "__tile": null, "defUid": 440, "realEditorValues": [] },
+				{ "__identifier": "encounters", "__value": "100x RATTATA\n10x STARYU", "__type": "String", "__tile": null, "defUid": 439, "realEditorValues": [{
+					"id": "V_String",
+					"params": ["100x RATTATA\n10x STARYU"]
+				}] },
+				{ "__identifier": "encounter_level_min", "__value": 5, "__type": "Int", "__tile": null, "defUid": 447, "realEditorValues": [] },
+				{ "__identifier": "encounter_level_max", "__value": 10, "__type": "Int", "__tile": null, "defUid": 448, "realEditorValues": [] },
+				{ "__identifier": "filter_red", "__value": 1, "__type": "Float", "__tile": null, "defUid": 402, "realEditorValues": [null] },
+				{ "__identifier": "filter_green", "__value": 1, "__type": "Float", "__tile": null, "defUid": 403, "realEditorValues": [] },
+				{ "__identifier": "filter_blue", "__value": 1, "__type": "Float", "__tile": null, "defUid": 404, "realEditorValues": [] },
+				{ "__identifier": "on_enter", "__value": null, "__type": "String", "__tile": null, "defUid": 361, "realEditorValues": [] },
+				{ "__identifier": "step", "__value": null, "__type": "String", "__tile": null, "defUid": 362, "realEditorValues": [] },
+				{ "__identifier": "on_exit", "__value": null, "__type": "String", "__tile": null, "defUid": 363, "realEditorValues": [] }
+			],
+			"layerInstances": null,
+			"__neighbours": [
+				{ "levelIid": "a4a557a0-02f0-11ed-a579-d73f91becf06", "levelUid": 506, "dir": "s" },
+				{ "levelIid": "55587c00-02f0-11ed-8121-31ba1f395d42", "levelUid": 504, "dir": "n" },
+				{ "levelIid": "b66a6550-02f0-11ed-b3e6-c7d99f33d654", "levelUid": 508, "dir": "n" }
+			]
 		},
 		{
 			"identifier": "L1_Upstairs",
 			"iid": "128e7e30-02f0-11ed-b303-b1769b8fff0f",
 			"uid": 495,
-			"worldX": -3360,
-			"worldY": -544,
+			"worldX": -2432,
+			"worldY": -256,
 			"worldDepth": 0,
 			"pxWid": 256,
 			"pxHei": 256,
@@ -6340,7 +6347,7 @@
 			"__neighbours": []
 		},
 		{
-			"identifier": "World_Level_3",
+			"identifier": "L2_Grasstown",
 			"iid": "fd017ea0-02f0-11ed-9fe8-03560067a467",
 			"uid": 499,
 			"worldX": -2432,
@@ -6350,14 +6357,14 @@
 			"pxHei": 768,
 			"__bgColor": "#7F8093",
 			"bgColor": null,
-			"useAutoIdentifier": true,
+			"useAutoIdentifier": false,
 			"bgRelPath": null,
 			"bgPos": null,
 			"bgPivotX": 0.5,
 			"bgPivotY": 0.5,
 			"__smartColor": "#B9B9C4",
 			"__bgPos": null,
-			"externalRelPath": "world/0003-World_Level_3.ldtkl",
+			"externalRelPath": "world/0003-L2_Grasstown.ldtkl",
 			"fieldInstances": [
 				{ "__identifier": "hospital", "__value": null, "__type": "String", "__tile": null, "defUid": 454, "realEditorValues": [] },
 				{ "__identifier": "allow_save", "__value": true, "__type": "Bool", "__tile": null, "defUid": 452, "realEditorValues": [] },
@@ -6378,7 +6385,7 @@
 			"__neighbours": [{ "levelIid": "107189d0-02f0-11ed-9fe8-9d246b5c6aa4", "levelUid": 500, "dir": "e" }]
 		},
 		{
-			"identifier": "World_Level_4",
+			"identifier": "L3_I2_Bridge",
 			"iid": "107189d0-02f0-11ed-9fe8-9d246b5c6aa4",
 			"uid": 500,
 			"worldX": -1360,
@@ -6388,14 +6395,14 @@
 			"pxHei": 528,
 			"__bgColor": "#7F8093",
 			"bgColor": null,
-			"useAutoIdentifier": true,
+			"useAutoIdentifier": false,
 			"bgRelPath": null,
 			"bgPos": null,
 			"bgPivotX": 0.5,
 			"bgPivotY": 0.5,
 			"__smartColor": "#B9B9C4",
 			"__bgPos": null,
-			"externalRelPath": "world/0004-World_Level_4.ldtkl",
+			"externalRelPath": "world/0004-L3_I2_Bridge.ldtkl",
 			"fieldInstances": [
 				{ "__identifier": "hospital", "__value": null, "__type": "String", "__tile": null, "defUid": 454, "realEditorValues": [] },
 				{ "__identifier": "allow_save", "__value": true, "__type": "Bool", "__tile": null, "defUid": 452, "realEditorValues": [] },
@@ -6419,8 +6426,8 @@
 			"identifier": "L4_I2_Roads",
 			"iid": "55587c00-02f0-11ed-8121-31ba1f395d42",
 			"uid": 504,
-			"worldX": -400,
-			"worldY": -496,
+			"worldX": -176,
+			"worldY": -1056,
 			"worldDepth": 0,
 			"pxWid": 224,
 			"pxHei": 224,
@@ -6451,7 +6458,45 @@
 				{ "__identifier": "on_exit", "__value": null, "__type": "String", "__tile": null, "defUid": 363, "realEditorValues": [] }
 			],
 			"layerInstances": null,
-			"__neighbours": [{ "levelIid": "76a71550-02f0-11ed-8121-97d242e6de8c", "levelUid": 503, "dir": "e" }]
+			"__neighbours": [ { "levelIid": "eda2b510-02f0-11ed-ba73-3d1568ce19a2", "levelUid": 507, "dir": "s" }, { "levelIid": "b66a6550-02f0-11ed-b3e6-c7d99f33d654", "levelUid": 508, "dir": "e" } ]
+		},
+		{
+			"identifier": "L4_I3_poi",
+			"iid": "b66a6550-02f0-11ed-b3e6-c7d99f33d654",
+			"uid": 508,
+			"worldX": 48,
+			"worldY": -1200,
+			"worldDepth": 0,
+			"pxWid": 496,
+			"pxHei": 368,
+			"__bgColor": "#7F8093",
+			"bgColor": null,
+			"useAutoIdentifier": false,
+			"bgRelPath": null,
+			"bgPos": null,
+			"bgPivotX": 0.5,
+			"bgPivotY": 0.5,
+			"__smartColor": "#B9B9C4",
+			"__bgPos": null,
+			"externalRelPath": "world/0006-L4_I3_poi.ldtkl",
+			"fieldInstances": [
+				{ "__identifier": "hospital", "__value": null, "__type": "String", "__tile": null, "defUid": 454, "realEditorValues": [] },
+				{ "__identifier": "allow_save", "__value": true, "__type": "Bool", "__tile": null, "defUid": 452, "realEditorValues": [] },
+				{ "__identifier": "allow_cycle", "__value": true, "__type": "Bool", "__tile": null, "defUid": 467, "realEditorValues": [] },
+				{ "__identifier": "environment", "__value": "forest", "__type": "String", "__tile": null, "defUid": 453, "realEditorValues": [] },
+				{ "__identifier": "encounter_rate", "__value": 0.05, "__type": "Float", "__tile": null, "defUid": 440, "realEditorValues": [] },
+				{ "__identifier": "encounters", "__value": "100x RATTATA", "__type": "String", "__tile": null, "defUid": 439, "realEditorValues": [] },
+				{ "__identifier": "encounter_level_min", "__value": 5, "__type": "Int", "__tile": null, "defUid": 447, "realEditorValues": [] },
+				{ "__identifier": "encounter_level_max", "__value": 10, "__type": "Int", "__tile": null, "defUid": 448, "realEditorValues": [] },
+				{ "__identifier": "filter_red", "__value": 1, "__type": "Float", "__tile": null, "defUid": 402, "realEditorValues": [] },
+				{ "__identifier": "filter_green", "__value": 1, "__type": "Float", "__tile": null, "defUid": 403, "realEditorValues": [] },
+				{ "__identifier": "filter_blue", "__value": 1, "__type": "Float", "__tile": null, "defUid": 404, "realEditorValues": [] },
+				{ "__identifier": "on_enter", "__value": null, "__type": "String", "__tile": null, "defUid": 361, "realEditorValues": [] },
+				{ "__identifier": "step", "__value": null, "__type": "String", "__tile": null, "defUid": 362, "realEditorValues": [] },
+				{ "__identifier": "on_exit", "__value": null, "__type": "String", "__tile": null, "defUid": 363, "realEditorValues": [] }
+			],
+			"layerInstances": null,
+			"__neighbours": [ { "levelIid": "eda2b510-02f0-11ed-ba73-3d1568ce19a2", "levelUid": 507, "dir": "s" }, { "levelIid": "55587c00-02f0-11ed-8121-31ba1f395d42", "levelUid": 504, "dir": "w" } ]
 		}
 	],
 	"worlds": []

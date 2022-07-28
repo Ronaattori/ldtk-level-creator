@@ -1,3 +1,4 @@
+from random import random
 from typing import Iterable
 from level import Level
 from world import World
@@ -20,17 +21,23 @@ class Tilechecker:
     :param template_ndarrays -> A list of ndarrays with level tiles mapped onto them"""
 
     def __init__(
-        self, template_ndarrays: list, elements: list, non_place=[], log_weights=True
+        self,
+        template_ndarrays: list,
+        elements: list,
+        elements_col: list,
+        non_place=[],
+        log_weights=True,
     ):
         self.elements = elements
+        self.elements_col = elements_col
         self.used_elements = set()
         self.templates = [
-            self.map_elements(x, skip_empty=True, add_new_elements=True)
-            for x in template_ndarrays
+            self.map_elements(x, y, skip_empty=True, add_new_elements=True)
+            for x, y in template_ndarrays
         ]
         self.non_place_templates = [
-            self.map_elements(x, skip_empty=True, add_new_elements=True)
-            for x in non_place
+            self.map_elements(x, y, skip_empty=True, add_new_elements=True)
+            for x, y in non_place
         ]
         self.log_weights = log_weights
         self.allowed = self._build_rules()
@@ -42,7 +49,6 @@ class Tilechecker:
         :return -> The ruleset"""
         timer = time.perf_counter()
 
-        # allowed = {}
         weights = {}
 
         n_ele = len(self.elements)
@@ -234,15 +240,9 @@ class Tilechecker:
             poss[coords] = allowed
             propagations.extend([x for x in self.coords_around(array, coords)])
 
-    def debug_element(self, level, arr, poss, element_id):
-        """Check all locations where element_id is currently allowed and write it to the level."""
-        for k, v in poss.items():
-            y, x = k
-            if element_id in v:
-                arr[y][x] = element_id
-        self.write_elements(level, arr)
-
-    def map_elements(self, ndarray, skip_empty=False, add_new_elements=False):
+    def map_elements(
+        self, ndarray, ndarray_col, skip_empty=False, add_new_elements=False
+    ):
         """Convert tiles in level to elements and map the ids to array
         :param ndarray                -> ndarray that has all level tile info
         :param skip_empty=False       -> Skip mapping elements of only 0s
@@ -254,9 +254,13 @@ class Tilechecker:
         for x in range(wid):
             for y in range(hei):
                 element = []
+                element_col = []
                 for d in range(depth):
                     element.append(ndarray[d][y][x])
+                    if ndarray_col is not None:
+                        element_col.append(ndarray_col[d][y][x])
                 element = tuple(element)
+                element_col = tuple(element_col)
 
                 if skip_empty:
                     if sum(element) == 0:
@@ -265,6 +269,8 @@ class Tilechecker:
                 if add_new_elements:
                     if element not in self.elements:
                         self.elements.append(element)
+                        if ndarray_col is not None:
+                            self.elements_col.append(element_col)
 
                 if element not in self.elements:
                     raise IndexError(
@@ -274,8 +280,7 @@ class Tilechecker:
                 array[y][x] = self.elements.index(element)
         return array
 
-    def write_elements(self, level, array, ldtkc=False):
-        # return
+    def write_elements(self, level, array, ldtkc=False, manager=None):
         """Write elements mapped in array to level
         :param level -> Target Level object to write to
         :param array -> Numpy array that contains the mapped elements"""
@@ -288,11 +293,16 @@ class Tilechecker:
                     element_id = array[y, x]
                     if element_id == -1:
                         continue
-                    element = checker.elements[element_id]
+                    element = self.elements[element_id]
+                    col = self.elements_col[element_id]
                     # For tile layer in the level
                     for i, layer in enumerate(
                         [x for x in level["layers"] if x[0] == "TILES"]
                     ):
+                        # Apply collisions
+                        layer[3][y, x] = col[i]
+
+                        # And tiles
                         t = element[i]
                         layer = layer[2][0]
 
@@ -344,7 +354,7 @@ class Tilechecker:
         :returns         -> A list of weights to be used in np.random.choice(..., p=)"""
 
         # If surrounding are still empty, return weights with all values valued the same
-        if sum([arr[y, x] for y, x in checker.coords_around(arr, from_coords)]) == -4:
+        if sum([arr[y, x] for y, x in self.coords_around(arr, from_coords)]) == -4:
             return elements / np.sum(elements)
 
         weights = elements.astype(float)
@@ -368,182 +378,365 @@ class Tilechecker:
         return weights
 
 
-def create_ndarray(level, ldtkc=False):
+def create_ndarray(level, ldtkc=False, manager=None):
     if ldtkc:
         wid, hei = level["orig_dimensions"]
         depth = len(manager.tile_layers(level))
         ndarray = np.zeros((depth, hei, wid), int)
 
+        enum_size = manager.levels[1000]["layers"][0][3].shape[2]
+        ndarray_coll = np.zeros((depth, hei, wid, enum_size), bool)
+
         for d, layer in enumerate(manager.tile_layers(level)):
-            layer = layer[2]
             for y in range(hei):
                 for x in range(wid):
-                    t_x, t_y = layer[0, y, x]
+                    t_x, t_y = layer[2][0, y, x]
                     if not t_x:
                         continue
                     t_x -= 1
                     tile_id = t_y + t_x * MULTIPLIER
                     ndarray[d][y][x] = tile_id
+                    ndarray_coll[d, y, x] = layer[3][y, x]
+        return ndarray, ndarray_coll
+
+    wid, hei = [x // 16 for x in level.size]
+    depth = len(level.layers)
+    ndarray = np.zeros((depth, hei, wid), int)
+
+    # Map all known tiles into an ndarray
+    for d, layer in enumerate(level.layers.values()):
+        for tile in layer["gridTiles"]:
+            x, y = [a // 16 for a in tile["px"]]
+            ndarray[d][y][x] = tile["t"]
+    return ndarray, None
+
+
+def find_pois(arr):
+    hei, wid = arr.shape
+
+    x_scan = np.zeros((hei, wid), int)
+    for y in range(hei):
+        for x, elem in enumerate(np.nditer(arr[y])):
+            if elem != -1:
+                x_scan[y, x] = x_scan[y, x - 1] + 1
+            else:
+                x_scan[y, x] = 0
+    y_scan = np.zeros((hei, wid), int)
+    for x in range(wid):
+        for y in range(hei):
+            elem = arr[y, x]
+            if elem != -1:
+                y_scan[y, x] = y_scan[y - 1, x] + 1
+            else:
+                y_scan[y, x] = 0
+    composite = np.multiply(x_scan, y_scan)
+    pois = []
+    while np.sum(composite):
+        bottom_right = np.unravel_index(np.argmax(composite), composite.shape)
+        y, x = bottom_right
+        hei, wid = y_scan[y, x], x_scan[y, x]
+        pois.append(np.copy(arr[y - hei + 1 : y + 1, x - wid + 1 : x + 1]))
+        composite[y - hei + 1 : y + 1, x - wid + 1 : x + 1] = 0
+    return pois
+
+
+def place_pois(array, pois):
+    """Returns the center points of the placed down pois"""
+    poi_centers = []
+    for poi in pois:
+        hei, wid = poi.shape
+        opt = list(np.array(np.where(array == -1)).T)
+        np.random.shuffle(opt)
+        while opt:
+            y, x = opt.pop(0)
+            arr_slice = array[y - hei + 1 : y + 1, x - wid + 1 : x + 1]
+            if list(np.unique(arr_slice)) == [-1]:
+                array[y - hei + 1 : y + 1, x - wid + 1 : x + 1] = poi
+                print("Placed a POI")
+                poi_centers.append((y - hei // 2, x - wid // 2))
+                break
+    return poi_centers
+
+
+def get_skins(arr):
+    hei, wid = arr.shape
+
+    x_scan = np.zeros((hei, wid), int)
+    for y in range(hei):
+        for x, elem in enumerate(np.nditer(arr[y])):
+            if elem != -1:
+                x_scan[y, x] = x_scan[y, x - 1] + 1
+            else:
+                x_scan[y, x] = 0
+    y_scan = np.zeros((hei, wid), int)
+    for x in range(wid):
+        for y in range(hei):
+            elem = arr[y, x]
+            if elem != -1:
+                y_scan[y, x] = y_scan[y - 1, x] + 1
+            else:
+                y_scan[y, x] = 0
+    composite = np.multiply(x_scan, y_scan)
+    skins = []
+    while np.sum(composite):
+        bottom_right = np.unravel_index(np.argmax(composite), composite.shape)
+        y, x = bottom_right
+        hei, wid = y_scan[y, x], x_scan[y, x]
+        skins.append(((y, x), np.copy(arr[y - hei + 1 : y + 1, x - wid + 1 : x + 1])))
+        composite[y - hei + 1 : y + 1, x - wid + 1 : x + 1] = 0
+    skins.sort(key=lambda x: (x[0], x[1]))  # Sort by y then x, ascending
+    skins_sorted = {}
+    for skin in skins:
+        coord, array = skin
+        y, x = coord
+        if y not in skins_sorted:
+            skins_sorted[y] = []
+        skins_sorted[y].append(array)
+    return skins_sorted
+
+
+def apply_skins(arr, skins):
+    rng = np.random.default_rng()
+    for bucket in skins.values():
+        base = bucket[0]
+        hei, wid = base.shape
+        locations = find_subarrays(arr, base)
+        skin_ids = rng.integers(0, len(bucket), len(locations))
+        for i, skin_id in enumerate(skin_ids):
+            if skin_id == 0:
+                continue
+            y, x = locations[i]
+            arr[y : y + hei, x : x + wid] = bucket[skin_id]
+
+
+def find_subarrays(a, b):
+    shape = [n - m + 1 for n, m in zip(a.shape, b.shape)] + list(b.shape)
+    strides = a.strides + a.strides
+    view = np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+
+    result = np.where(np.all(view == b, axis=(2, 3)))
+    return np.array(result).T
+
+
+def create_level(target, template, road, poi, skin, ldtkc=True, path=None):
+    """Parameters are file name strings for ldtk, level ids for ldtkc"""
+    if not path:
+        print("Please specify the path. eg. path=((27, 12), [(15, 64)])")
+        raise Exception
+    elements = []
+    elements_col = []
+
+    if ldtkc:
+        # For LDTKC map creation
+        manager = LdtkcManager("world.ldtkc")
+        target = manager.levels[target]
+        template = manager.levels[template]
+        road_template = manager.levels[road]
+        poi_template = manager.levels[poi]
+        skin_template = manager.levels[skin]
     else:
-        wid, hei = [x // 16 for x in level.size]
-        depth = len(level.layers)
-        ndarray = np.zeros((depth, hei, wid), int)
+        # For LDTK map creation
+        target = Level(world, ROOT / target)
+        template = Level(world, ROOT / template)
+        road_template = Level(world, ROOT / road)
+        poi_template = Level(world, ROOT / poi)
+        skin_template = Level(world, ROOT / skin)
+        manager = None
 
-        # Map all known tiles into an ndarray
-        for d, layer in enumerate(level.layers.values()):
-            for tile in layer["gridTiles"]:
-                x, y = [a // 16 for a in tile["px"]]
-                ndarray[d][y][x] = tile["t"]
-    return ndarray
+    templates = [create_ndarray(x, ldtkc=ldtkc, manager=manager) for x in [template]]
+    non_place_templates = [
+        create_ndarray(x, ldtkc=ldtkc, manager=manager)
+        for x in [road_template, poi_template]
+    ]
+    road_templates = [
+        create_ndarray(x, ldtkc=ldtkc, manager=manager) for x in [road_template]
+    ]
 
+    checker = Tilechecker(
+        templates,
+        elements,
+        elements_col,
+        non_place=non_place_templates,
+        log_weights=True,
+    )
+    roads = Tilechecker(road_templates, elements, elements_col)
 
-elements = []
+    ndarray, ndarray_col = create_ndarray(target, ldtkc=ldtkc, manager=manager)
 
-# For LDTKC map creation
-# manager = LdtkcManager("world.ldtkc")
-# template = create_ndarray(manager.levels[4001], ldtkc=True)
-# checker = Tilechecker([template])
-# target = manager.levels[4000]
-# ndarray = create_ndarray(target, ldtkc=True)
-# ldtkc = True
+    timer = time.perf_counter()
 
-# For LDTK map creation
-template = Level(world, ROOT / "0000-L4_I1_Template.ldtkl")
-road_template = Level(world, ROOT / "0005-L4_I2_Roads.ldtkl")
-target = Level(world, ROOT / "0001-L4_Snowtown.ldtkl")
+    # Map all targets pre-set elements to a 2darray
+    arr = checker.map_elements(ndarray, ndarray_col, skip_empty=True)
 
-templates = [create_ndarray(x) for x in [template]]
-non_place_templates = [create_ndarray(x) for x in [road_template]]
+    # Level dimensions
+    hei, wid = arr.shape
 
-checker = Tilechecker(
-    templates, elements, non_place=non_place_templates, log_weights=True
-)
-roads = Tilechecker([create_ndarray(road_template)], elements)
+    # Initialize poss with all coords having all options
+    poss = np.zeros((hei, wid, len(checker.element_ids)), dtype="?")
+    for elem_id in checker.used_elements:
+        poss[:, :, elem_id] = 1
 
-ndarray = create_ndarray(target)
-ldtkc = False
+    # Update arr with information about pre-set elements
+    for coords in list(zip(*np.nonzero(arr != -1))):
+        y, x = coords
+        elem_id = arr[y, x]
+        poss[y, x] = 0
+        poss[y, x, elem_id] = 1
 
-timer = time.perf_counter()
+    print("Pre-set elements", time.perf_counter() - timer)
 
-# Map all targets pre-set elements to a 2darray
-arr = checker.map_elements(ndarray, skip_empty=True)
+    # Create the path
+    pathfinder = Pathfinder(checker)
 
-# Level dimensions
-hei, wid = arr.shape
+    path = pathfinder.create_path(arr, path[0], path[1])
+    path = pathfinder.largen_path(arr, path)
 
-# Initialize poss with all coords having all options
-poss = np.zeros((hei, wid, len(checker.element_ids)), dtype="?")
-for elem_id in checker.used_elements:
-    poss[:, :, elem_id] = 1
+    road_arr = copy.deepcopy(arr)
+    road_poss = np.zeros((hei, wid, len(roads.element_ids)), dtype="?")
+    for elem_id in roads.used_elements:
+        road_poss[:, :, elem_id] = 1
 
-# Update arr with information about pre-set elements
-for coords in list(zip(*np.nonzero(arr != -1))):
-    y, x = coords
-    elem_id = arr[y, x]
-    poss[y, x] = 0
-    poss[y, x, elem_id] = 1
+    # Fill all tiles outside the path with grass
+    # Fetch the top left tile in the road template
+    grass_element = roads.map_elements(
+        *create_ndarray(road_template, ldtkc=ldtkc, manager=manager)
+    )[0, 0]
+    for i, _ in enumerate(np.nditer(road_arr)):
+        coord = y, x = i // wid, i % wid
+        if coord not in path:
+            road_arr[y, x] = grass_element
+            road_poss[y, x] = 0
+            road_poss[y, x, grass_element] = 1
+    road_poss = roads.scan_elements(road_arr, road_poss)
 
-print("Pre-set elements", time.perf_counter() - timer)
+    # tmp_arr is full of grass with the road carved out
+    while -1 in road_arr:
+        road_poss_sel = np.sum(road_poss, axis=2)
+        print(f"{np.sum(road_poss_sel>1)} tiles left to fill")
+        road_poss_sel[road_poss_sel < 2] = 999
+        m = np.min(road_poss_sel)
+        if m == 999:
+            print("Road out of options!")
+            break
+        opt = np.array(np.where(road_poss_sel == m)).T
 
-# Create the path
-pathfinder = Pathfinder(checker)
-path = pathfinder.create_path(arr, (27, 12), [(15, 64)])
-path = pathfinder.largen_path(arr, path)
+        y, x = opt[np.random.randint(len(opt))]
 
-road_arr = copy.deepcopy(arr)
-road_poss = np.zeros((hei, wid, len(roads.element_ids)), dtype="?")
-for elem_id in roads.used_elements:
-    road_poss[:, :, elem_id] = 1
+        if WEIGHTS:
+            if not (weights := checker.get_weights(arr, (y, x), road_poss[y, x])).any():
+                continue
+            else:
+                weights = road_poss[y, x] / np.sum(road_poss[y, x])
 
-# Fill all tiles outside the path with grass
-# Fetch the top left tile in the road template
-grass_element = roads.map_elements(create_ndarray(road_template))[0, 0]
-for i, _ in enumerate(np.nditer(road_arr)):
-    coord = y, x = i // wid, i % wid
-    if coord not in path:
-        road_arr[y, x] = grass_element
+        element_id = np.random.choice(list(roads.element_ids), p=weights)
+
+        coord = (y, x)
+
         road_poss[y, x] = 0
-        road_poss[y, x, grass_element] = 1
-road_poss = roads.scan_elements(road_arr, road_poss)
+        road_poss[y, x, element_id] = 1
+        poss[y, x] = 0
+        poss[y, x, element_id] = 1
 
-# tmp_arr is full of grass with the road carved out
-while -1 in road_arr:
-    road_poss_sel = np.sum(road_poss, axis=2)
-    print(f"{np.sum(road_poss_sel>1)} tiles left to fill")
-    road_poss_sel[road_poss_sel < 2] = 999
-    m = np.min(road_poss_sel)
-    if m == 999:
-        print("Road out of options!")
-        break
-    opt = np.array(np.where(road_poss_sel == m)).T
+        road_arr[y, x] = element_id
+        arr[y, x] = element_id
 
-    y, x = opt[np.random.randint(len(opt))]
+        roads.propagate_elements(road_arr, road_poss, coord)
 
-    if WEIGHTS:
-        if not (weights := checker.get_weights(arr, (y, x), road_poss[y, x])).any():
-            continue
-        else:
-            weights = road_poss[y, x] / np.sum(road_poss[y, x])
+    for y in range(hei):
+        for x in range(wid):
+            if (y, x) in path:
+                element_id = int(np.where(road_poss[y, x] == 1)[0])
+                poss[y, x] = 0
+                poss[y, x, element_id] = 1
+                arr[y, x] = element_id
 
-    element_id = np.random.choice(list(roads.element_ids), p=weights)
+    # Place down points of interest
+    arr_no_poi = np.copy(arr)
+    poi_ndarray, poi_col = create_ndarray(poi_template, ldtkc=ldtkc, manager=manager)
+    poi_arr = checker.map_elements(
+        poi_ndarray, poi_col, skip_empty=True, add_new_elements=True
+    )
+    pois = find_pois(poi_arr)
+    centers = place_pois(arr, pois)
 
-    coord = (y, x)
+    # Create a grass path from all POIs to the main road
+    for center in centers:
+        poi_path = pathfinder.create_path(arr_no_poi, center, [path])
+        for coord in poi_path:
+            y, x = coord
+            if arr[y, x] == -1:
+                arr[y, x] = grass_element
 
-    road_poss[y, x] = 0
-    road_poss[y, x, element_id] = 1
-    poss[y, x] = 0
-    poss[y, x, element_id] = 1
+    # Scan the whole level before we beging WFC
+    poss = checker.scan_elements(arr, poss)
 
-    road_arr[y, x] = element_id
-    arr[y, x] = element_id
+    arr_copy = np.copy(arr)
+    poss_copy = np.copy(poss)
 
-    roads.propagate_elements(road_arr, road_poss, coord)
+    finished = False
+    while not finished:
+        try:
+            while -1 in arr:
+                poss_sel = np.sum(poss, axis=2)
+                print(f"{np.sum(poss_sel>1)} tiles left to fill")
+                poss_sel[poss_sel < 2] = 999
+                m = np.min(poss_sel)
+                if m == 999:
+                    print("Level out of options!")
+                    break
+                opt = np.array(np.where(poss_sel == m)).T
 
-for y in range(hei):
-    for x in range(wid):
-        if (y, x) in path:
-            element_id = int(np.where(road_poss[y, x] == 1)[0])
-            poss[y, x] = 0
-            poss[y, x, element_id] = 1
-            arr[y, x] = element_id
+                y, x = opt[np.random.randint(len(opt))]
 
-# Scan the whole level before we beging WFC
-poss = checker.scan_elements(arr, poss)
+                if WEIGHTS:
+                    if not (
+                        weights := checker.get_weights(arr, (y, x), poss[y, x])
+                    ).any():
+                        continue
+                    else:
+                        weights = poss[y, x] / np.sum(poss[y, x])
 
-while -1 in arr:
-    poss_sel = np.sum(poss, axis=2)
-    print(f"{np.sum(poss_sel>1)} tiles left to fill")
-    poss_sel[poss_sel < 2] = 999
-    m = np.min(poss_sel)
-    if m == 999:
-        print("Level out of options!")
-        break
-    opt = np.array(np.where(poss_sel == m)).T
+                element_id = np.random.choice(list(checker.element_ids), p=weights)
 
-    y, x = opt[np.random.randint(len(opt))]
+                poss[y, x] = 0
+                poss[y, x, element_id] = 1
+                arr[y, x] = element_id
 
-    if WEIGHTS:
-        if not (weights := checker.get_weights(arr, (y, x), poss[y, x])).any():
-            continue
-        else:
-            weights = poss[y, x] / np.sum(poss[y, x])
+                checker.propagate_elements(arr, poss, (y, x))
 
-    element_id = np.random.choice(list(checker.element_ids), p=weights)
+            for y in range(hei):
+                for x in range(wid):
+                    if arr[y, x] == -1:
+                        element_id = int(np.where(poss[y, x] == 1)[0])
+                        poss[y, x] = 0
+                        poss[y, x, element_id] = 1
+                        arr[y, x] = element_id
+            finished = True
+        except TypeError:
+            arr = np.copy(arr_copy)
+            poss = np.copy(poss_copy)
+            finished = False
 
-    poss[y, x] = 0
-    poss[y, x, element_id] = 1
-    arr[y, x] = element_id
+    # Get the skins from the template and apply them
+    skin_arr = checker.map_elements(
+        *create_ndarray(skin_template, ldtkc=ldtkc, manager=manager),
+        skip_empty=True,
+        add_new_elements=True,
+    )
+    skins = get_skins(skin_arr)
+    apply_skins(arr, skins)
 
-    checker.propagate_elements(arr, poss, (y, x))
+    print("Running time:", int(time.perf_counter() - timer), "s")
+    # # Write elements mapped into arr to the target
+    checker.write_elements(target, arr, ldtkc=ldtkc, manager=manager)
 
-for y in range(hei):
-    for x in range(wid):
-        if arr[y, x] == -1:
-            element_id = int(np.where(poss[y, x] == 1)[0])
-            poss[y, x] = 0
-            poss[y, x, element_id] = 1
-            arr[y, x] = element_id
 
-print("Running time:", int(time.perf_counter() - timer), "s")
-# # Write elements mapped into arr to the target
-checker.write_elements(target, arr, ldtkc=ldtkc)
+create_level(
+    "0000-L4_Snowtown.ldtkl",
+    "0001-L4_I1_Template.ldtkl",
+    "0005-L4_I2_Roads.ldtkl",
+    "0006-L4_I3_poi.ldtkl",
+    "0007-L4_I4_Skins.ldtkl",
+    path=((27, 12), [(15, 64)]),
+    ldtkc=False,
+)

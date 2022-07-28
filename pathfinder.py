@@ -17,15 +17,24 @@ class Pathfinder:
             return True
         return False
 
+    def next_to_path(self, arr, path, coord):
+        for coords in self.checker.coords_around(arr, coord):
+            if coords in path:
+                return True
+
     def find_path(self, arr, from_coords, to_coords: list):
         """Dijkstras pathfinding algo that moves in steps of 3.
         First goes from A to B, then from the middle of the just created path to C and so on....
         :param arr -> The array with mapped elements
         :param from_coords -> A tuple of coordinates to start from
         :param to_coords   -> A list of tuples of coordinates to coordinate to"""
+
         path_steps = []
         y, x = from_coords
         for end_coord in to_coords:
+            s = (
+                3 if isinstance(end_coord, tuple) else 1
+            )  # Just trying to make poi pathfinding work
             visited = set()
             # First iteration draw a straight path. The ones after that start from the middle of the current known path
             if path_steps:
@@ -34,22 +43,26 @@ class Pathfinder:
                 current = from_coords
             path = {current: [current]}
             while current:
-                # TODO: mby move coords_around outside of the tilechecker
-                for coord in self.checker.coords_around(arr, current, steps=3):
+                for coord in self.checker.coords_around(arr, current, steps=s):
                     y, x = coord
                     dist = len(path[current]) + 1
                     if coord not in path or dist < len(path[coord]):
                         path[coord] = path[current] + [coord]
 
                 visited.add(current)
-                if current == end_coord:
-                    path_steps.extend(path[end_coord])
-                    break
-                # If under 3 tiles away in on direction from the end, add current path + end coord to the final path
-                # fill_path will fill the skipped coordinates
-                if self.end_close_enough(current, end_coord):
-                    path_steps.extend(path[current] + [end_coord])
-                    break
+                if isinstance(end_coord, set):
+                    if self.next_to_path(arr, end_coord, current):
+                        path_steps.extend(path[current])
+                        break
+                else:
+                    if current == end_coord:
+                        path_steps.extend(path[current])
+                        break
+                    # If under 3 tiles away in on direction from the end, add current path + end coord to the final path
+                    # fill_path will fill the skipped coordinates
+                    if self.end_close_enough(current, end_coord):
+                        path_steps.extend(path[current] + [end_coord])
+                        break
                 next = None
                 for c, p in path.items():
                     y, x = c

@@ -1,4 +1,4 @@
-from random import random
+import random
 from typing import Iterable
 from level import Level
 from world import World
@@ -440,10 +440,11 @@ def find_pois(arr):
     return pois
 
 
-def place_pois(array, pois):
+def place_pois(array, pois, amount):
     """Returns the center points of the placed down pois"""
     poi_centers = []
-    for poi in pois:
+    random.shuffle(pois)
+    for poi in pois[:amount]:
         hei, wid = poi.shape
         opt = list(np.array(np.where(array == -1)).T)
         np.random.shuffle(opt)
@@ -518,7 +519,9 @@ def find_subarrays(a, b):
     return np.array(result).T
 
 
-def create_level(target, template, road, poi, skin, ldtkc=True, path=None):
+def create_level(
+    target, template, road, poi, skin, ldtkc=True, path=None, poi_amount=None
+):
     """Parameters are file name strings for ldtk, level ids for ldtkc"""
     if not path:
         print("Please specify the path. eg. path=((27, 12), [(15, 64)])")
@@ -587,7 +590,6 @@ def create_level(target, template, road, poi, skin, ldtkc=True, path=None):
 
     # Create the path
     pathfinder = Pathfinder(checker)
-
     path = pathfinder.create_path(arr, path[0], path[1])
     path = pathfinder.largen_path(arr, path)
 
@@ -657,7 +659,9 @@ def create_level(target, template, road, poi, skin, ldtkc=True, path=None):
         poi_ndarray, poi_col, skip_empty=True, add_new_elements=True
     )
     pois = find_pois(poi_arr)
-    centers = place_pois(arr, pois)
+    if not poi_amount:
+        poi_amount = len(pois)
+    centers = place_pois(arr, pois, poi_amount)
 
     # Create a grass path from all POIs to the main road
     for center in centers:
@@ -672,7 +676,6 @@ def create_level(target, template, road, poi, skin, ldtkc=True, path=None):
 
     arr_copy = np.copy(arr)
     poss_copy = np.copy(poss)
-
     finished = False
     while not finished:
         try:
@@ -715,7 +718,6 @@ def create_level(target, template, road, poi, skin, ldtkc=True, path=None):
         except TypeError:
             arr = np.copy(arr_copy)
             poss = np.copy(poss_copy)
-            finished = False
 
     # Get the skins from the template and apply them
     skin_arr = checker.map_elements(
@@ -735,8 +737,19 @@ create_level(
     "0000-L4_Snowtown.ldtkl",
     "0001-L4_I1_Template.ldtkl",
     "0005-L4_I2_Roads.ldtkl",
-    "0006-L4_I3_poi.ldtkl",
-    "0007-L4_I4_Skins.ldtkl",
-    path=((27, 12), [(15, 64)]),
+    "0007-L4_I3_poi.ldtkl",
+    "0008-L4_I4_Skins.ldtkl",
+    path=((27, 12), [(15, 118)]),
     ldtkc=False,
+    poi_amount=random.randint(2, 3),
 )
+# create_level(
+#     "0010-L6_Inferno.ldtkl",
+#     "0011-L6_I1_Template.ldtkl",
+#     "0006-L6_I2_Roads.ldtkl",
+#     "0012-L6_I3_poi.ldtkl",
+#     "0013-L6_I4_Skins.ldtkl",
+#     path=((10, 25), [(103,48)]),
+#     ldtkc=False,
+#     poi_amount=random.randint(2, 2),
+# )

@@ -601,7 +601,7 @@ def create_level(
         *create_ndarray(road_template, ldtkc=ldtkc, manager=manager)
     )[0, 0]
 
-    mainroad_arr = checker.map_elements(create_ndarray(mainroad_template, ldtkc=ldtkc))
+    mainroad_arr = checker.map_elements(*create_ndarray(mainroad_template, ldtkc=ldtkc))
 
     mainroad = {}
     mainroad["hor"] = mainroad_arr[:, 0:2]
@@ -617,8 +617,8 @@ def create_level(
     road_path = [path_start] + road_path + [path_end]
     path = []
     for pre, coord, post in zip(road_path, road_path[1:], road_path[2:]):
-        pre_dir = checker.get_direction(coord, pre)
-        post_dir = checker.get_direction(coord, post)
+        pre_dir, _ = checker.get_direction(coord, pre)
+        post_dir, _ = checker.get_direction(coord, post)
         if pre_dir in ("West", "East") and post_dir in ("West", "East"):
             dir = "hor"
         elif pre_dir in ("South", "North") and post_dir in ("South", "North"):
@@ -639,78 +639,6 @@ def create_level(
             arr[y + y2, x + x2] = elem
             poss[y + y2, x + x2] = 0
             poss[y + y2, x + x2, elem] = 1
-    # for coord in road_path:
-    #     y, x = coord[0] * 2, coord[1] * 2
-    #     for y2, x2 in ((0, 0), (0, 1), (1, 0), (1, 1)):
-    #         path.append((y + y2, x + x2))
-    #         arr[y + y2, x + x2] = grass_element
-    #         poss[y + y2, x + x2] = 0
-    #         poss[y + y2, x + x2, grass_element] = 1
-
-    # path_start, path_end = path[0], path[1][0]
-    # # path = pathfinder.create_path(arr, path[0], path[1])
-    # path = pathfinder.create_path(arr, path[0], path[1])
-    # path = pathfinder.largen_path(arr, path)
-
-    # road_arr = copy.deepcopy(arr)
-    # road_poss = np.zeros((hei, wid, len(roads.element_ids)), dtype="?")
-    # for elem_id in roads.used_elements:
-    #     road_poss[:, :, elem_id] = 1
-
-    # # Fill all tiles outside the path with grass
-    # # Fetch the top left tile in the road template
-    # grass_element = roads.map_elements(
-    #     *create_ndarray(road_template, ldtkc=ldtkc, manager=manager)
-    # )[0, 0]
-    # for i, _ in enumerate(np.nditer(road_arr)):
-    #     coord = y, x = i // wid, i % wid
-    #     if coord not in path:
-    #         road_arr[y, x] = grass_element
-    #         road_poss[y, x] = 0
-    #         road_poss[y, x, grass_element] = 1
-    # road_poss = roads.scan_elements(road_arr, road_poss, single=True)
-    # roads.propagate_elements(road_arr, road_poss, [path_start, path_end])
-
-    # # tmp_arr is full of grass with the road carved out
-    # while -1 in road_arr:
-    #     road_poss_sel = np.sum(road_poss, axis=2)
-    #     print(f"{np.sum(road_poss_sel>1)} tiles left to fill")
-    #     road_poss_sel[road_poss_sel < 2] = 999
-    #     m = np.min(road_poss_sel)
-    #     if m == 999:
-    #         print("Road out of options!")
-    #         break
-    #     opt = np.array(np.where(road_poss_sel == m)).T
-
-    #     y, x = opt[np.random.randint(len(opt))]
-
-    #     if WEIGHTS:
-    #         if not (weights := checker.get_weights(arr, (y, x), road_poss[y, x])).any():
-    #             continue
-    #         else:
-    #             weights = road_poss[y, x] / np.sum(road_poss[y, x])
-
-    #     element_id = np.random.choice(list(roads.element_ids), p=weights)
-
-    #     coord = (y, x)
-
-    #     road_poss[y, x] = 0
-    #     road_poss[y, x, element_id] = 1
-    #     poss[y, x] = 0
-    #     poss[y, x, element_id] = 1
-
-    #     road_arr[y, x] = element_id
-    #     arr[y, x] = element_id
-
-    #     roads.propagate_elements(road_arr, road_poss, coord)
-
-    # for y in range(hei):
-    #     for x in range(wid):
-    #         if (y, x) in path:
-    #             element_id = int(np.where(road_poss[y, x] == 1)[0])
-    #             poss[y, x] = 0
-    #             poss[y, x, element_id] = 1
-    #             arr[y, x] = element_id
 
     # Place down points of interest
     arr_no_poi = np.copy(arr)

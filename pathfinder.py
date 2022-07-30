@@ -1,6 +1,7 @@
 import time
 import copy
 import random
+from typing import final
 import numpy as np
 
 
@@ -21,6 +22,68 @@ class Pathfinder:
         for coords in self.checker.coords_around(arr, coord):
             if coords in path:
                 return True
+
+    def reduce_axis(self, b):
+        b2 = b.reshape(*b.shape[:-2], -1, 2, b.shape[-1])
+        idx = np.argmax(b2.sum(axis=-1), axis=-1)
+        c = b2[np.arange(b2.shape[0]), idx]
+        return c
+
+    def find_road_path(self, arr, from_coords, to_coords: list):
+        """Dijkstras pathfinding algo that moves in steps of 3.
+        First goes from A to B, then from the middle of the just created path to C and so on....
+        :param arr -> The array with mapped elements
+        :param from_coords -> A tuple of coordinates to start from
+        :param to_coords   -> A list of tuples of coordinates to coordinate to"""
+
+        # arr = arr != -1
+        # arr = self.reduce_axis(self.reduce_axis(arr).T).T
+
+        final_path = []
+        # from_coords = y, x = tuple([x // 2 for x in from_coords])
+        for end_coord in to_coords:
+            # end_coord = tuple([x // 2 for x in end_coord])
+            visited = set()
+            # First iteration draw a straight path. The ones after that start from the middle of the current known path
+            if final_path:
+                current = final_path[len(final_path) // 2]
+            else:
+                current = from_coords
+            path = {current: [current]}
+            while current:
+                for coord in self.checker.coords_around(arr, current):
+                    y, x = coord
+                    dist = len(path[current]) + 1
+                    if coord not in path or dist < len(path[coord]):
+                        path[coord] = path[current] + [coord]
+
+                visited.add(current)
+                if isinstance(end_coord, set):
+                    if self.next_to_path(arr, end_coord, current):
+                        final_path.extend(path[current])
+                        break
+                else:
+                    if current == end_coord:
+                        final_path.extend(path[current])
+                        break
+                    # If under 3 tiles away in on direction from the end, add current path + end coord to the final path
+                    # fill_path will fill the skipped coordinates
+                    # if self.end_close_enough(current, end_coord):
+                    #     final_path.extend(path[current] + [end_coord])
+                    #     break
+                next = None
+                for c, p in path.items():
+                    y, x = c
+                    if arr[y][x]:
+                        continue
+                    if c in visited:
+                        continue
+                    if next is None or len(p) < len(path[next]):
+                        next = c
+                if next is None:
+                    return False
+                current = next
+        return final_path
 
     def find_path(self, arr, from_coords, to_coords: list):
         """Dijkstras pathfinding algo that moves in steps of 3.
@@ -50,7 +113,7 @@ class Pathfinder:
                         path[coord] = path[current] + [coord]
 
                 visited.add(current)
-                if isinstance(end_coord, set):
+                if isinstance(end_coord, list):
                     if self.next_to_path(arr, end_coord, current):
                         path_steps.extend(path[current])
                         break
@@ -68,6 +131,9 @@ class Pathfinder:
                     y, x = c
                     if arr[y][x] != -1:
                         continue
+                    # If 3 step path contains anything other than -1
+                    if [a for a in self.fill_path([current, c]) if arr[a] != -1]:
+                        continue
                     if c in visited:
                         continue
                     if next is None or len(p) < len(path[next]):
@@ -78,6 +144,36 @@ class Pathfinder:
         # Fill in the blanks caused by taking 3 steps at a time
         final_path = self.fill_path(path_steps)
         return final_path
+
+    def create_road_path(self, arr, from_coords, to_coords: list):
+        """Uses dijkstras pathfinding algo, and creates wiggliness in the shortest path found
+        First goes from A to B, then from the middle of the just created path to C and so on....
+        :param arr -> The array with mapped elements
+        :param from_coords -> A tuple of coordinates to start from
+        :param to_coords   -> A list of tuples of coordinates to coordinate to"""
+        arr = arr != -1
+        arr = self.reduce_axis(self.reduce_axis(arr).T).T
+        from_coords = tuple([x // 2 for x in from_coords])
+        to_coords = [tuple([x // 2 for x in end_coords]) for end_coords in to_coords]
+
+        timer = time.perf_counter()
+        open_cells = list(zip(*np.nonzero(arr == False)))
+        random.shuffle(open_cells)
+        if not (witness := self.find_road_path(arr, from_coords, to_coords)):
+            raise Exception(f"Could not find a path from {from_coords} to {to_coords}")
+        while True:
+            if not open_cells:
+                print("Finding out the path took", time.perf_counter() - timer)
+                return witness
+            c = open_cells.pop(0)
+            y, x = c
+            arr[y][x] = True
+            if c in witness:
+                # find_path considers everything other than -1 as an obstacle
+                if new_path := self.find_road_path(arr, from_coords, to_coords):
+                    witness = new_path
+                else:
+                    arr[y, x] = False
 
     def create_path(self, arr, from_coords, to_coords: list):
         """Uses dijkstras pathfinding algo, and creates wiggliness in the shortest path found

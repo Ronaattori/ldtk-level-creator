@@ -11,8 +11,8 @@
 	"identifier": "L2_Grasstown",
 	"iid": "fd017ea0-02f0-11ed-9fe8-03560067a467",
 	"uid": 499,
-	"worldX": -2432,
-	"worldY": 48,
+	"worldX": -2624,
+	"worldY": 0,
 	"worldDepth": 0,
 	"pxWid": 1072,
 	"pxHei": 768,
@@ -3909,5 +3909,5 @@
 			"entityInstances": []
 		}
 	],
-	"__neighbours": [{ "levelIid": "107189d0-02f0-11ed-9fe8-9d246b5c6aa4", "levelUid": 500, "dir": "e" }]
+	"__neighbours": [{ "levelIid": "128e7e30-02f0-11ed-b303-b1769b8fff0f", "levelUid": 495, "dir": "n" }]
 }

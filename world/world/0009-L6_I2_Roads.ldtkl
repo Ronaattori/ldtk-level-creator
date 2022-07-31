@@ -11,8 +11,8 @@
 	"identifier": "L6_I2_Roads",
 	"iid": "4759238b-02f0-11ed-a5fa-6d0d9efb8eed",
 	"uid": 525,
-	"worldX": 2912,
-	"worldY": 608,
+	"worldX": 3248,
+	"worldY": -1424,
 	"worldDepth": 0,
 	"pxWid": 224,
 	"pxHei": 224,
@@ -545,5 +545,5 @@
 			"entityInstances": []
 		}
 	],
-	"__neighbours": [ { "levelIid": "98190310-02f0-11ed-a5fa-89ee85711cbf", "levelUid": 521, "dir": "s" }, { "levelIid": "778bf6f0-02f0-11ed-a5fa-0747d2cb5b59", "levelUid": 523, "dir": "e" } ]
+	"__neighbours": [{ "levelIid": "778bf6f0-02f0-11ed-a5fa-0747d2cb5b59", "levelUid": 523, "dir": "w" }]
 }

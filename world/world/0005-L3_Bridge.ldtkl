@@ -11,8 +11,8 @@
 	"identifier": "L3_Bridge",
 	"iid": "107189d0-02f0-11ed-9fe8-9d246b5c6aa4",
 	"uid": 500,
-	"worldX": -1472,
-	"worldY": 112,
+	"worldX": -1376,
+	"worldY": -2944,
 	"worldDepth": 0,
 	"pxWid": 1184,
 	"pxHei": 528,
@@ -1592,5 +1592,5 @@
 			"entityInstances": []
 		}
 	],
-	"__neighbours": []
+	"__neighbours": [ { "levelIid": "a4a557a0-02f0-11ed-a579-d73f91becf06", "levelUid": 506, "dir": "e" }, { "levelIid": "50092e80-02f0-11ed-b22e-bff8b3e39852", "levelUid": 529, "dir": "w" } ]
 }

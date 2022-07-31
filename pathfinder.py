@@ -175,7 +175,7 @@ class Pathfinder:
                 else:
                     arr[y, x] = False
 
-    def create_path(self, arr, from_coords, to_coords: list):
+    def create_path(self, arr, from_coords, to_coords: list, max_wiggle=5):
         """Uses dijkstras pathfinding algo, and creates wiggliness in the shortest path found
         First goes from A to B, then from the middle of the just created path to C and so on....
         :param arr -> The array with mapped elements
@@ -183,24 +183,22 @@ class Pathfinder:
         :param to_coords   -> A list of tuples of coordinates to coordinate to"""
         timer = time.perf_counter()
         arr = copy.deepcopy(arr)
-        open_cells = list(zip(*np.nonzero(arr == -1)))
-        random.shuffle(open_cells)
+        wiggles = 0
         if not (witness := self.find_path(arr, from_coords, to_coords)):
             raise Exception(f"Could not find a path from {from_coords} to {to_coords}")
-        wiggliness_reduction = 0.0  # Percentage
         while True:
-            if not open_cells:
+            if wiggles == max_wiggle:
                 print("Finding out the path took", time.perf_counter() - timer)
                 return witness
-            c = open_cells.pop(0)
+            c = random.choice(witness)
             y, x = c
-            if c in witness:
-                if random.random() < wiggliness_reduction:
-                    continue  # Reduce the wiggliness
-                # find_path considers everything other than -1 as an obstacle
-                arr[y][x] = 0
-                if new_path := self.find_path(arr, from_coords, to_coords):
-                    witness = new_path
+            # find_path considers everything other than -1 as an obstacle
+            arr[y][x] = 0
+            if new_path := self.find_path(arr, from_coords, to_coords):
+                wiggles += 1
+                witness = new_path
+            else:
+                return witness
 
     def largen_path(self, array, path):
         """Walk through path and append all coordinates around it to the path. Widens the path by 2"""

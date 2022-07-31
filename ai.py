@@ -28,6 +28,7 @@ class Tilechecker:
         elements_col: list,
         non_place=[],
         log_weights=True,
+        only_map=[],
     ):
         self.elements = elements
         self.elements_col = elements_col
@@ -39,6 +40,10 @@ class Tilechecker:
         self.non_place_templates = [
             self.map_elements(x, y, skip_empty=True, add_new_elements=True)
             for x, y in non_place
+        ]
+        self.only_map_templates = [
+            self.map_elements(x, y, skip_empty=True, add_new_elements=True)
+            for x, y in only_map
         ]
         self.log_weights = log_weights
         self.allowed = self._build_rules()
@@ -524,7 +529,16 @@ def find_subarrays(a, b):
 
 
 def create_level(
-    target, template, road, poi, skin, mainroad, ldtkc=True, path=None, poi_amount=None
+    target,
+    template,
+    road,
+    poi,
+    skin,
+    mainroad,
+    ldtkc=True,
+    path=None,
+    poi_amount=None,
+    non_place=[],
 ):
     """Parameters are file name strings for ldtk, level ids for ldtkc"""
     if not path:
@@ -542,6 +556,7 @@ def create_level(
         poi_template = manager.levels[poi]
         skin_template = manager.levels[skin]
         mainroad_template = manager.levels[mainroad]
+        non_place_templates = [manager.levels[l] for l in non_place]
     else:
         # For LDTK map creation
         target = Level(world, ROOT / target)
@@ -550,22 +565,26 @@ def create_level(
         poi_template = Level(world, ROOT / poi)
         skin_template = Level(world, ROOT / skin)
         mainroad_template = Level(world, ROOT / mainroad)
+        non_place_templates = [Level(world, ROOT / l) for l in non_place]
         manager = None
 
     templates = [create_ndarray(x, ldtkc=ldtkc, manager=manager) for x in [template]]
     non_place_templates = [
         create_ndarray(x, ldtkc=ldtkc, manager=manager)
-        for x in [road_template, poi_template]
+        for x in [road_template, poi_template] + non_place_templates
     ]
     road_templates = [
         create_ndarray(x, ldtkc=ldtkc, manager=manager) for x in [road_template]
     ]
+
+    ndarray, ndarray_col = create_ndarray(target, ldtkc=ldtkc, manager=manager)
 
     checker = Tilechecker(
         templates,
         elements,
         elements_col,
         non_place=non_place_templates,
+        only_map=[(ndarray, ndarray_col)],
         log_weights=True,
     )
     roads = Tilechecker(road_templates, elements, elements_col)
@@ -575,6 +594,7 @@ def create_level(
     timer = time.perf_counter()
 
     # Map all targets pre-set elements to a 2darray
+    print(len(elements))
     arr = checker.map_elements(ndarray, ndarray_col, skip_empty=True)
 
     # Level dimensions
@@ -722,26 +742,50 @@ def create_level(
 
 
 # create_level(
-#     "0000-L4_Snowtown.ldtkl",
-#     "0001-L4_I1_Template.ldtkl",
-#     "0005-L4_I2_Roads.ldtkl",
-#     "0007-L4_I3_poi.ldtkl",
-#     "0008-L4_I4_Skins.ldtkl",
-#     path=((26, 12), [(14, 118)]),
+#     "0002-L2_Grasstown.ldtkl",
+#     "0004-L2_I1_Template.ldtkl",
+#     "0007-L2_I2_Roads.ldtkl",
+#     "0003-L2_I3_poi.ldtkl",
+#     "0021-L2_I4_Skins.ldtkl",
+#     "0022-L2_I5_Mainroad.ldtkl",
+#     path=([(58,10), (58, 12)], [(26,110), (26, 112)]),
 #     ldtkc=False,
-#     poi_amount=random.randint(2, 3),
+#     # poi_amount=random.randint(4, 4),
 # )
 create_level(
-    "0010-L6_Inferno.ldtkl",
-    "0011-L6_I1_Template.ldtkl",
-    "0006-L6_I2_Roads.ldtkl",
-    "0012-L6_I3_poi.ldtkl",
-    "0013-L6_I4_Skins.ldtkl",
-    "0014-L6_I5_Mainroad.ldtkl",
-    path=([(10, 24), (10, 26)], [(102, 46), (102, 48)]),
+    "0019-L3_Swamp.ldtkl",
+    "0020-L3_I1_Template.ldtkl",
+    "0008-L3_I2_Roads.ldtkl",
+    "0024-L3_I3_poi.ldtkl",
+    "0026-L3_I4_Skins.ldtkl",
+    "0025-L3_I5_Mainroad.ldtkl",
+    path=([(110, 10), (110, 12)], [(18, 62), (18, 64)]),
     ldtkc=False,
-    poi_amount=random.randint(2, 2),
+    non_place=["0027-L3_I6_non_place.ldtkl"]
+    # poi_amount=random.randint(4, 4),
 )
+# create_level(
+#     "0000-L4_Snowtown.ldtkl",
+#     "0001-L4_I1_Template.ldtkl",
+#     "0006-L4_I2_Roads.ldtkl",
+#     "0010-L4_I3_poi.ldtkl",
+#     "0011-L4_I4_Skins.ldtkl",
+#     "0018-L4_I5_Mainroad.ldtkl",
+#     path=((26, 12), [(14, 118)]),
+#     ldtkc=False,
+#     # poi_amount=random.randint(2, 3),
+# )
+# create_level(
+#     "0010-L6_Inferno.ldtkl",
+#     "0011-L6_I1_Template.ldtkl",
+#     "0006-L6_I2_Roads.ldtkl",
+#     "0012-L6_I3_poi.ldtkl",
+#     "0013-L6_I4_Skins.ldtkl",
+#     "0014-L6_I5_Mainroad.ldtkl",
+#     path=([(10, 24), (10, 26)], [(102, 46), (102, 48)]),
+#     ldtkc=False,
+#     poi_amount=random.randint(4, 4),
+# )
 
 # world = World("world/world.ldtk")
 # target = Level(world, ROOT / "0000-L4_Snowtown.ldtkl")

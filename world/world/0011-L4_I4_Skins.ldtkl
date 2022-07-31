@@ -11,8 +11,8 @@
 	"identifier": "L4_I4_Skins",
 	"iid": "c66da0c0-02f0-11ed-8589-23c4d5710058",
 	"uid": 509,
-	"worldX": 544,
-	"worldY": -928,
+	"worldX": 688,
+	"worldY": -4000,
 	"worldDepth": 0,
 	"pxWid": 336,
 	"pxHei": 304,
@@ -672,5 +672,5 @@
 			"entityInstances": []
 		}
 	],
-	"__neighbours": [ { "levelIid": "6720d2b0-02f0-11ed-bf79-b1338f39fbea", "levelUid": 515, "dir": "s" }, { "levelIid": "b66a6550-02f0-11ed-b3e6-c7d99f33d654", "levelUid": 508, "dir": "w" } ]
+	"__neighbours": [{ "levelIid": "b66a6550-02f0-11ed-b3e6-c7d99f33d654", "levelUid": 508, "dir": "w" }]
 }
